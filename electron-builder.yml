@@ -1,0 +1,42 @@
+appId: com.kapahidigital.nextgoal
+productName: NextGoal
+copyright: Copyright © 2026 Sid Kapahi
+
+directories:
+  output: release
+  buildResources: build
+
+files:
+  - out/**/*
+  - package.json
+
+extraResources:
+  - from: resources
+    to: resources
+    filter: ["**/*"]
+
+# Pin the GUID so future updates upgrade in place. Do NOT change appId later.
+nsis:
+  oneClick: true
+  perMachine: false
+  runAfterFinish: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: NextGoal
+  uninstallDisplayName: NextGoal
+  deleteAppDataOnUninstall: false
+  guid: 8f2a1c94-3b7e-4d16-9a52-nextgoal001
+
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+  icon: build/icon.ico
+  artifactName: ${productName}-Setup-${version}.${ext}
+
+# Auto-update source. Alpha builds are published as prereleases.
+publish:
+  provider: github
+  owner: sidkapahi
+  repo: nextgoal
+  releaseType: prerelease

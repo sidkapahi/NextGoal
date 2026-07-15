@@ -1,0 +1,32 @@
+{
+  "name": "nextgoal",
+  "version": "0.1.0",
+  "description": "An auto-incrementing Twitch sub goal for OBS",
+  "main": "./out/main/index.js",
+  "author": "Sid Kapahi",
+  "license": "MIT",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "preview": "electron-vite preview",
+    "start": "electron-vite preview",
+    "dist": "electron-vite build && node scripts/inject-client-id.mjs && electron-builder",
+    "dist:win": "electron-vite build && node scripts/inject-client-id.mjs && electron-builder --win",
+    "test": "node test/anchor.test.js && node test/updater.test.js",
+    "postinstall": "electron-builder install-app-deps"
+  },
+  "dependencies": {
+    "electron-updater": "^6.3.9",
+    "obs-websocket-js": "^5.0.6",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "electron": "^32.2.0",
+    "electron-builder": "^25.1.8",
+    "electron-vite": "^2.3.0",
+    "vite": "^5.4.10",
+    "vue": "^3.5.12",
+    "vue-router": "^4.4.5",
+    "@vitejs/plugin-vue": "^5.1.4"
+  }
+}

@@ -1,0 +1,119 @@
+'use strict'
+
+// Twitch auth via Device Code Flow (public client, no secret).
+// Ported from the Python version. Node 18+ has global fetch.
+
+const DEVICE_URL = 'https://id.twitch.tv/oauth2/device'
+const TOKEN_URL = 'https://id.twitch.tv/oauth2/token'
+const HELIX_USERS = 'https://api.twitch.tv/helix/users'
+const SCOPES = 'channel:read:subscriptions'
+const DEVICE_GRANT = 'urn:ietf:params:oauth:grant-type:device_code'
+
+// Public info, safe to ship. Injected at build time; falls back to env in dev.
+const CLIENT_ID = process.env.TWITCH_CLIENT_ID || '__TWITCH_CLIENT_ID__'
+
+class AuthError extends Error {}
+class AuthExpired extends AuthError {}
+
+function form(obj) {
+  return new URLSearchParams(obj).toString()
+}
+
+async function startDeviceFlow() {
+  const res = await fetch(DEVICE_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: form({ client_id: CLIENT_ID, scopes: SCOPES }),
+  })
+  if (!res.ok) throw new AuthError(`Couldn't start Twitch login (${res.status}).`)
+  return res.json() // { device_code, user_code, verification_uri, interval, expires_in }
+}
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
+
+async function pollForToken(deviceCode, interval, expiresIn, shouldCancel) {
+  let wait = Math.max(1, Number(interval) || 5)
+  const deadline = Date.now() + (Number(expiresIn) || 1800) * 1000
+
+  while (Date.now() < deadline) {
+    if (shouldCancel && shouldCancel()) throw new AuthError('Login cancelled.')
+    await sleep(wait * 1000)
+
+    const res = await fetch(TOKEN_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: form({
+        client_id: CLIENT_ID,
+        device_code: deviceCode,
+        grant_type: DEVICE_GRANT,
+        scopes: SCOPES,
+      }),
+    })
+
+    if (res.ok) {
+      const data = await res.json()
+      return { accessToken: data.access_token, refreshToken: data.refresh_token }
+    }
+
+    let msg = ''
+    try {
+      msg = ((await res.json()).message || '').toLowerCase()
+    } catch {
+      msg = ''
+    }
+
+    if (msg.includes('pending')) continue
+    if (msg.includes('slow_down')) {
+      wait += 2
+      continue
+    }
+    if (msg.includes('expired')) throw new AuthError('That code expired. Try again.')
+    if (msg.includes('denied') || msg.includes('declined'))
+      throw new AuthError('Authorization was denied.')
+    throw new AuthError(`Login failed: ${msg || res.status}`)
+  }
+  throw new AuthError('Login timed out. Try again.')
+}
+
+// Public clients pass NO secret. Refresh tokens are single-use, so persist the
+// replacement immediately via onNewRefreshToken.
+async function refreshAccessToken(refreshToken, onNewRefreshToken) {
+  const res = await fetch(TOKEN_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: form({
+      client_id: CLIENT_ID,
+      grant_type: 'refresh_token',
+      refresh_token: refreshToken,
+    }),
+  })
+
+  if (res.status === 400 || res.status === 401)
+    throw new AuthExpired('Your Twitch login expired. Please log in again.')
+  if (!res.ok) throw new AuthError(`Token refresh failed (${res.status}).`)
+
+  const data = await res.json()
+  if (data.refresh_token && onNewRefreshToken) onNewRefreshToken(data.refresh_token)
+  return data.access_token
+}
+
+async function getCurrentUser(accessToken) {
+  const res = await fetch(HELIX_USERS, {
+    headers: { 'Client-Id': CLIENT_ID, Authorization: `Bearer ${accessToken}` },
+  })
+  if (!res.ok) throw new AuthError(`Couldn't read your Twitch account (${res.status}).`)
+  const data = (await res.json()).data || []
+  if (!data.length) throw new AuthError('Twitch returned no account info.')
+  return { id: data[0].id, name: data[0].display_name }
+}
+
+module.exports = {
+  CLIENT_ID,
+  SCOPES,
+  AuthError,
+  AuthExpired,
+  startDeviceFlow,
+  pollForToken,
+  refreshAccessToken,
+  getCurrentUser,
+}
