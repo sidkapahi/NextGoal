@@ -6,6 +6,7 @@ export default defineConfig({
   main: {
     plugins: [externalizeDepsPlugin()],
     build: {
+      commonjsOptions: { include: [/node_modules/, /src/] },
       rollupOptions: {
         input: { index: resolve(__dirname, 'src/main/index.js') },
       },
@@ -14,6 +15,7 @@ export default defineConfig({
   preload: {
     plugins: [externalizeDepsPlugin()],
     build: {
+      commonjsOptions: { include: [/node_modules/, /src/] },
       rollupOptions: {
         input: { index: resolve(__dirname, 'src/preload/index.js') },
       },

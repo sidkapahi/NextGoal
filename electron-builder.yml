@@ -25,7 +25,7 @@ nsis:
   shortcutName: NextGoal
   uninstallDisplayName: NextGoal
   deleteAppDataOnUninstall: false
-  guid: 8f2a1c94-3b7e-4d16-9a52-nextgoal001
+  guid: 778f36a7-c311-4cc5-acd2-2350004221b1
 
 win:
   target:
