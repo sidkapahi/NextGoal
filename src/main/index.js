@@ -1,6 +1,6 @@
 'use strict'
 
-const { app, ipcMain, shell } = require('electron')
+const { app, ipcMain, shell, Menu } = require('electron')
 const path = require('path')
 const fs = require('fs')
 
@@ -25,18 +25,23 @@ let tracker = null
 let obs = new OBSClient()
 let count = 0
 let goal = 5
+let synced = false
 let loginCancel = false
 
 app.on('window-all-closed', () => {
-  // tray app: do not quit when the flyout hides
+  // tray app: closing the window hides it to the tray, so this normally
+  // won't fire; if it does, keep running so the tray icon stays alive.
 })
-app.on('second-instance', () => windows.toggleFlyout())
+app.on('second-instance', () => windows.showWindow())
 app.on('before-quit', () => {
+  app.isQuitting = true
   if (tracker) tracker.stop()
   obs.close()
 })
 
 app.whenReady().then(async () => {
+  Menu.setApplicationMenu(null) // remove default File/Edit/View/Window menu bar
+
   cfg = config.load()
   refreshToken = config.loadToken()
   goal = computeGoal(0, cfg.startGoal, cfg.increment)
@@ -57,8 +62,12 @@ app.whenReady().then(async () => {
   if (cfg.checkForUpdates) updater.check()
 
   if (cfg.onboarded) {
-    await windows.enterFlyoutMode()
-    if (!cfg.startMinimized) windows.toggleFlyout()
+    if (cfg.startMinimized) {
+      await windows.showApp()
+      windows.getWindow()?.hide()
+    } else {
+      await windows.showApp()
+    }
     if (cfg.autostartTracking && refreshToken) startTracking()
   } else {
     await windows.showOnboarding()
@@ -82,7 +91,11 @@ function persistToken(token) {
 
 // ---- output: file + obs ----
 async function pushOutput() {
-  goal = computeGoal(count, cfg.startGoal, cfg.increment)
+  // When synced, the base is interval-aligned (nearest increment strictly above
+  // the count) instead of the configured starting goal.
+  goal = synced
+    ? computeGoal(count, cfg.increment, cfg.increment)
+    : computeGoal(count, cfg.startGoal, cfg.increment)
   const text = `${count}/${goal}`
   send('count-changed', { count, goal })
   updateTray({ tracking: !!tracker, count, goal })
@@ -113,7 +126,8 @@ function startTracking() {
     send('need-login')
     return
   }
-  count = 0
+  // Preserve the seeded value when synced; otherwise start each session at 0.
+  if (!synced) count = 0
   pushOutput()
 
   tracker = new SubTracker({
@@ -161,7 +175,9 @@ ipcMain.handle('get-state', () => ({
   cfg,
   connected: !!refreshToken && !!cfg.broadcasterId,
   broadcasterName: cfg.broadcasterName,
+  broadcasterAvatar: cfg.broadcasterAvatar,
   tracking: !!tracker,
+  synced,
   count,
   goal,
 }))
@@ -198,8 +214,9 @@ ipcMain.handle('twitch-login-start', async () => {
         const user = await auth.getCurrentUser(accessToken)
         cfg.broadcasterId = user.id
         cfg.broadcasterName = user.name
+        cfg.broadcasterAvatar = user.avatar || ''
         config.save(cfg)
-        send('twitch-login-ok', { name: user.name })
+        send('twitch-login-ok', { name: user.name, avatar: user.avatar || '' })
       } catch (e) {
         send('twitch-login-failed', e.message)
       }
@@ -223,6 +240,7 @@ ipcMain.handle('twitch-logout', () => {
   refreshToken = null
   cfg.broadcasterId = ''
   cfg.broadcasterName = ''
+  cfg.broadcasterAvatar = ''
   config.save(cfg)
   return true
 })
@@ -267,6 +285,23 @@ ipcMain.handle('obs-create-source', async (_e, name) => {
   }
 })
 
+// Bind to an existing text source without creating anything.
+ipcMain.handle('obs-select-source', (_e, name) => {
+  cfg.obsSource = name || ''
+  config.save(cfg)
+  return { ok: true, name: cfg.obsSource }
+})
+
+// Write sample text to a source so the user can confirm it shows in OBS.
+ipcMain.handle('obs-test-source', async (_e, name) => {
+  try {
+    await obs.setText(name || cfg.obsSource, `${count}/${goal}`)
+    return { ok: true }
+  } catch (e) {
+    return { ok: false, error: e.message }
+  }
+})
+
 // --- tracking controls ---
 ipcMain.handle('start-tracking', () => startTracking())
 ipcMain.handle('stop-tracking', () => stopTracking())
@@ -274,6 +309,29 @@ ipcMain.handle('reset-count', () => resetCount())
 ipcMain.handle('adjust-count', (_e, n) => {
   count = Math.max(0, count + n)
   pushOutput()
+})
+
+// --- sync counter to current Twitch sub total ---
+ipcMain.handle('sync-sub-count', async (_e, on) => {
+  if (!on) {
+    synced = false
+    count = 0
+    pushOutput()
+    return { ok: true, synced: false, count, goal }
+  }
+  if (!refreshToken || !cfg.broadcasterId) {
+    return { ok: false, error: 'Connect your Twitch account first.' }
+  }
+  try {
+    const accessToken = await auth.refreshAccessToken(refreshToken, persistToken)
+    const total = await auth.getSubscriberCount(accessToken, cfg.broadcasterId)
+    synced = true
+    count = Math.max(0, total | 0)
+    pushOutput() // recomputes goal as the nearest increment strictly above count
+    return { ok: true, synced: true, count, goal }
+  } catch (e) {
+    return { ok: false, error: e.message }
+  }
 })
 
 // --- test sub (onboarding + testing) ---
@@ -286,20 +344,8 @@ ipcMain.handle('fire-test-sub', () => {
 ipcMain.handle('onboarding-complete', async () => {
   cfg.onboarded = true
   config.save(cfg)
-  await windows.enterFlyoutMode()
-  windows.positionFlyout()
-  const w = windows.getWindow()
-  if (w) w.show()
+  await windows.showApp()
   return true
 })
-ipcMain.handle('flyout-hide', () => {
-  const w = windows.getWindow()
-  if (w && windows.getMode() === 'flyout') w.hide()
-})
-ipcMain.handle('flyout-pin', (_e, v) => {
-  windows.setPinned(v)
-  return windows.isPinned()
-})
-ipcMain.handle('open-full-window', () => windows.showWindowed())
 ipcMain.handle('open-external', (_e, url) => shell.openExternal(url))
 ipcMain.handle('install-update', () => updater.quitAndInstall())

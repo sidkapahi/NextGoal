@@ -7,6 +7,7 @@ const path = require('path')
 const DEFAULTS = {
   broadcasterId: '',
   broadcasterName: '',
+  broadcasterAvatar: '',
   startGoal: 5,
   increment: 5,
   writeToFile: false,

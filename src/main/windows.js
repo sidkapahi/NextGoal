@@ -2,15 +2,12 @@
 
 const { BrowserWindow, app, shell } = require('electron')
 const path = require('path')
-const { computeFlyoutPosition } = require('./anchor')
 
 const APP_W = 460
 const APP_H = 640
 
 let win = null
-let mode = 'flyout'
-let pinned = false
-let trayRef = null
+let mode = 'app'
 
 function loadRenderer(w, hashMode) {
   if (!app.isPackaged && process.env.ELECTRON_RENDERER_URL) {
@@ -25,6 +22,7 @@ function createWindow({ preloadPath }) {
     height: APP_H,
     show: false,
     frame: true,
+    autoHideMenuBar: true, // no File/Edit/View menu bar
     resizable: false,
     maximizable: false,
     fullscreenable: false,
@@ -37,10 +35,12 @@ function createWindow({ preloadPath }) {
     },
   })
 
-  win.on('blur', () => {
-    if (mode !== 'flyout' || pinned) return
-    if (win && win.webContents.isDevToolsOpened()) return
-    if (win) win.hide()
+  // Closing hides the window to the tray; the app keeps running. A real quit
+  // (tray menu / app.quit) sets app.isQuitting so the window closes for good.
+  win.on('close', (e) => {
+    if (app.isQuitting) return
+    e.preventDefault()
+    win.hide()
   })
 
   // open external links (twitch.tv/activate) in the real browser
@@ -58,61 +58,37 @@ function createWindow({ preloadPath }) {
 async function showOnboarding() {
   if (!win) return
   mode = 'onboarding'
-  win.setSkipTaskbar(false)
-  win.setAlwaysOnTop(false)
   win.center()
   await loadRenderer(win, 'onboarding')
   win.show()
   win.focus()
 }
 
-async function enterFlyoutMode() {
+async function showApp() {
   if (!win) return
-  mode = 'flyout'
-  win.setSkipTaskbar(true)
-  win.setAlwaysOnTop(true, 'floating')
+  mode = 'app'
   await loadRenderer(win, 'app')
-}
-
-function setTray(t) {
-  trayRef = t
-}
-
-function positionFlyout() {
-  if (!win || !trayRef) return
-  let tb = null
-  try {
-    tb = trayRef.getBounds()
-  } catch {}
-  const { x, y } = computeFlyoutPosition(win.getBounds(), tb)
-  win.setPosition(x, y, false)
-}
-
-function toggleFlyout() {
-  if (!win) return
-  if (win.isVisible()) {
-    win.hide()
-    return
-  }
-  positionFlyout()
-  win.show()
-  win.focus()
-}
-
-function showWindowed() {
-  if (!win) return
-  win.setSkipTaskbar(false)
   win.center()
   win.show()
   win.focus()
 }
 
-function setPinned(v) {
-  pinned = !!v
+function toggleWindow() {
+  if (!win) return
+  if (win.isVisible()) {
+    win.hide()
+    return
+  }
+  win.show()
+  win.focus()
 }
-function isPinned() {
-  return pinned
+
+function showWindow() {
+  if (!win) return
+  win.show()
+  win.focus()
 }
+
 function getWindow() {
   return win
 }
@@ -123,13 +99,9 @@ function getMode() {
 module.exports = {
   createWindow,
   showOnboarding,
-  enterFlyoutMode,
-  toggleFlyout,
-  positionFlyout,
-  showWindowed,
-  setTray,
-  setPinned,
-  isPinned,
+  showApp,
+  toggleWindow,
+  showWindow,
   getWindow,
   getMode,
   APP_W,
