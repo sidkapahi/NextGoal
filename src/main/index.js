@@ -48,30 +48,31 @@ app.whenReady().then(async () => {
 
   windows.createWindow({ preloadPath: path.join(__dirname, '../preload/index.js') })
 
+  // Show the UI first, before tray/updater, so nothing downstream can ever
+  // leave the app running with no visible window.
+  if (cfg.onboarded) {
+    await windows.showApp()
+    if (cfg.startMinimized) windows.getWindow()?.hide()
+  } else {
+    await windows.showOnboarding()
+  }
+
   createTray({
     getStatus: () => ({ tracking: !!tracker, count, goal }),
     onToggleTracking: () => (tracker ? stopTracking() : startTracking()),
     onReset: () => resetCount(),
   })
 
-  updater.init({
-    onAvailable: (v) => send('update-available', v),
-    onDownloaded: (v) => send('update-downloaded', v),
-    onError: () => {},
-  })
-  if (cfg.checkForUpdates) updater.check()
+  try {
+    updater.init({
+      onAvailable: (v) => send('update-available', v),
+      onDownloaded: (v) => send('update-downloaded', v),
+      onError: () => {},
+    })
+    if (cfg.checkForUpdates) updater.check()
+  } catch {}
 
-  if (cfg.onboarded) {
-    if (cfg.startMinimized) {
-      await windows.showApp()
-      windows.getWindow()?.hide()
-    } else {
-      await windows.showApp()
-    }
-    if (cfg.autostartTracking && refreshToken) startTracking()
-  } else {
-    await windows.showOnboarding()
-  }
+  if (cfg.onboarded && cfg.autostartTracking && refreshToken) startTracking()
 })
 
 function send(channel, payload) {

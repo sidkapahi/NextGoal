@@ -2,12 +2,22 @@
 
 const { BrowserWindow, app, shell } = require('electron')
 const path = require('path')
+const fs = require('fs')
 
 const APP_W = 460
 const APP_H = 640
 
 let win = null
 let mode = 'app'
+
+// Lightweight main-process log so packaged startup failures are diagnosable.
+// Written to <userData>/ng-main.log.
+function logMain(msg) {
+  try {
+    const line = `${new Date().toISOString()} ${msg}\n`
+    fs.appendFileSync(path.join(app.getPath('userData'), 'ng-main.log'), line)
+  } catch {}
+}
 
 function loadRenderer(w, hashMode) {
   if (!app.isPackaged && process.env.ELECTRON_RENDERER_URL) {
@@ -49,28 +59,45 @@ function createWindow({ preloadPath }) {
     return { action: 'deny' }
   })
 
+  // Diagnostics: surface renderer load/crash failures instead of a silent
+  // no-window state.
+  win.webContents.on('did-fail-load', (_e, code, desc, url) => {
+    logMain(`did-fail-load code=${code} desc=${desc} url=${url}`)
+  })
+  win.webContents.on('render-process-gone', (_e, details) => {
+    logMain(`render-process-gone reason=${details && details.reason}`)
+  })
+
   win.on('closed', () => {
     win = null
   })
   return win
 }
 
-async function showOnboarding() {
+// Show the window immediately, then load content into it. Showing up front
+// (rather than after awaiting the load) guarantees a visible window even if the
+// renderer is slow or fails to load — the background is dark, so there's no
+// flash. Callers that want it hidden (start-minimized) hide it afterward.
+async function present(hashMode) {
   if (!win) return
-  mode = 'onboarding'
   win.center()
-  await loadRenderer(win, 'onboarding')
   win.show()
   win.focus()
+  try {
+    await loadRenderer(win, hashMode)
+  } catch (e) {
+    logMain(`loadRenderer(${hashMode}) failed: ${(e && e.message) || e}`)
+  }
+}
+
+async function showOnboarding() {
+  mode = 'onboarding'
+  await present('onboarding')
 }
 
 async function showApp() {
-  if (!win) return
   mode = 'app'
-  await loadRenderer(win, 'app')
-  win.center()
-  win.show()
-  win.focus()
+  await present('app')
 }
 
 function toggleWindow() {
