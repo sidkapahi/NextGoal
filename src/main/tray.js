@@ -20,7 +20,7 @@ function createTray({ getStatus, onToggleTracking, onReset }) {
   tray.setToolTip('NextGoal')
   windows.setTray(tray)
 
-  tray.on('click', () => windows.toggleFlyout())
+  tray.on('click', () => windows.toggleWindow())
 
   tray.on('right-click', () => {
     const s = getStatus()
@@ -36,13 +36,7 @@ function createTray({ getStatus, onToggleTracking, onReset }) {
       },
       { label: 'Reset count to 0', click: () => onReset() },
       { type: 'separator' },
-      { label: 'Open window', click: () => windows.showWindowed() },
-      {
-        label: 'Keep flyout open (pin)',
-        type: 'checkbox',
-        checked: windows.isPinned(),
-        click: (item) => windows.setPinned(item.checked),
-      },
+      { label: 'Show window', click: () => windows.showWindow() },
       { type: 'separator' },
       { label: 'Quit NextGoal', click: () => app.quit() },
     ])

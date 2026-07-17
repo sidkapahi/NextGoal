@@ -1,6 +1,6 @@
 # NextGoal
 
-An auto-incrementing Twitch sub goal for OBS. Starts at 0 each stream; every time you hit the goal it raises itself by your chosen increment. Built with Electron + Vue, runs as a tray flyout, feeds OBS over obs-websocket (no plugin) with a text-file fallback.
+An auto-incrementing Twitch sub goal for OBS. Starts at 0 each stream (or syncs to your current sub count); every time you hit the goal it raises itself by your chosen increment. Built with Electron + Vue, runs as a free-form desktop window with a tray icon for quick show/hide, feeds OBS over obs-websocket (no plugin) with a text-file fallback.
 
 ## Run it
 
@@ -45,9 +45,8 @@ GitHub Actions builds on Windows and publishes to Releases. `electron-updater` d
 
 **Main process** (`src/main`)
 - `index.js` — wires everything, owns app state, all IPC
-- `windows.js` — one BrowserWindow, two modes: framed onboarding vs tray flyout
-- `anchor.js` — flyout positioning math (taskbar edge, overflow tray, DPI, clamping). Unit-tested.
-- `tray.js` — left-click flyout toggle, right-click menu, idle/live icon
+- `windows.js` — one BrowserWindow: framed onboarding + free-form app window. Closing hides to the tray; quit from the tray menu.
+- `tray.js` — left-click shows/hides the window, right-click menu, idle/live icon
 - `services/`
   - `twitchAuth.js` — Device Code Flow, no client secret, single-use refresh handling
   - `tracker.js` — EventSub WebSocket, gift-bomb double-count fix

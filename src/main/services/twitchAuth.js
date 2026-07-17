@@ -6,6 +6,7 @@
 const DEVICE_URL = 'https://id.twitch.tv/oauth2/device'
 const TOKEN_URL = 'https://id.twitch.tv/oauth2/token'
 const HELIX_USERS = 'https://api.twitch.tv/helix/users'
+const HELIX_SUBS = 'https://api.twitch.tv/helix/subscriptions'
 const SCOPES = 'channel:read:subscriptions'
 const DEVICE_GRANT = 'urn:ietf:params:oauth:grant-type:device_code'
 
@@ -104,7 +105,20 @@ async function getCurrentUser(accessToken) {
   if (!res.ok) throw new AuthError(`Couldn't read your Twitch account (${res.status}).`)
   const data = (await res.json()).data || []
   if (!data.length) throw new AuthError('Twitch returned no account info.')
-  return { id: data[0].id, name: data[0].display_name }
+  return { id: data[0].id, name: data[0].display_name, avatar: data[0].profile_image_url || '' }
+}
+
+// Current total subscriber count for the broadcaster. Uses the same
+// channel:read:subscriptions scope the tracker already relies on.
+async function getSubscriberCount(accessToken, broadcasterId) {
+  const url = `${HELIX_SUBS}?broadcaster_id=${encodeURIComponent(broadcasterId)}&first=1`
+  const res = await fetch(url, {
+    headers: { 'Client-Id': CLIENT_ID, Authorization: `Bearer ${accessToken}` },
+  })
+  if (res.status === 401) throw new AuthExpired('Your Twitch login expired. Please log in again.')
+  if (!res.ok) throw new AuthError(`Couldn't read your sub count (${res.status}).`)
+  const data = await res.json()
+  return Number(data.total) || 0
 }
 
 module.exports = {
@@ -116,4 +130,5 @@ module.exports = {
   pollForToken,
   refreshAccessToken,
   getCurrentUser,
+  getSubscriberCount,
 }

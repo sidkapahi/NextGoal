@@ -23,6 +23,8 @@ contextBridge.exposeInMainWorld('ng', {
   obsConnect: (opts) => ipcRenderer.invoke('obs-connect', opts),
   obsListSources: () => ipcRenderer.invoke('obs-list-sources'),
   obsCreateSource: (name) => ipcRenderer.invoke('obs-create-source', name),
+  obsSelectSource: (name) => ipcRenderer.invoke('obs-select-source', name),
+  obsTestSource: (name) => ipcRenderer.invoke('obs-test-source', name),
   setObsPassword: (pw) => ipcRenderer.invoke('set-obs-password', pw),
 
   // tracking
@@ -31,12 +33,10 @@ contextBridge.exposeInMainWorld('ng', {
   resetCount: () => ipcRenderer.invoke('reset-count'),
   adjustCount: (n) => ipcRenderer.invoke('adjust-count', n),
   fireTestSub: () => ipcRenderer.invoke('fire-test-sub'),
+  syncSubCount: (on) => ipcRenderer.invoke('sync-sub-count', on),
 
   // windowing
   completeOnboarding: () => ipcRenderer.invoke('onboarding-complete'),
-  hideFlyout: () => ipcRenderer.invoke('flyout-hide'),
-  setPinned: (v) => ipcRenderer.invoke('flyout-pin', v),
-  openFullWindow: () => ipcRenderer.invoke('open-full-window'),
   openExternal: (url) => ipcRenderer.invoke('open-external', url),
   installUpdate: () => ipcRenderer.invoke('install-update'),
 
