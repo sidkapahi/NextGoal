@@ -356,6 +356,28 @@ ipcMain.handle('fire-test-sub', () => {
   pushOutput()
 })
 
+// Wipe everything back to a first-run state: settings, Twitch login and the
+// saved OBS password. The renderer navigates to onboarding afterward; on next
+// launch the cleared onboarded flag sends the user through setup again.
+ipcMain.handle('reset-all-data', () => {
+  if (tracker) stopTracking()
+  try {
+    obs.close()
+  } catch {}
+  config.clearToken()
+  config.clearObsPassword()
+  cfg = { ...config.DEFAULTS }
+  config.save(cfg)
+  refreshToken = null
+  obsPassword = ''
+  obs = new OBSClient()
+  count = 0
+  synced = false
+  goal = computeGoal(0, cfg.startGoal, cfg.increment)
+  updateTray({ tracking: false, count, goal })
+  return true
+})
+
 // --- windowing ---
 ipcMain.handle('onboarding-complete', async () => {
   cfg.onboarded = true
