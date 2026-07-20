@@ -18,7 +18,6 @@ function iconFor(live) {
 function createTray({ getStatus, onToggleTracking, onReset }) {
   tray = new Tray(iconFor(false))
   tray.setToolTip('NextGoal')
-  windows.setTray(tray)
 
   tray.on('click', () => windows.toggleWindow())
 
