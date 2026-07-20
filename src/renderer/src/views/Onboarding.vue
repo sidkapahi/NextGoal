@@ -18,6 +18,7 @@ const obsError = ref('')
 const obsHost = ref('localhost')
 const obsPort = ref(4455)
 const obsPassword = ref('')
+const showPw = ref(false)
 
 const sources = ref([])
 const selected = ref('')
@@ -45,6 +46,7 @@ onMounted(async () => {
     const s = await window.ng.getState()
     obsHost.value = s.cfg.obsHost
     obsPort.value = s.cfg.obsPort
+    obsPassword.value = s.obsPassword || ''
     selected.value = s.cfg.obsSource || ''
   }
 })
@@ -171,7 +173,25 @@ function backFromWebsocket() { editMode.value ? router.push('/app') : (step.valu
         </div>
         <label class="col f">
           <span class="field-label">Password (if you set one)</span>
-          <input type="password" v-model="obsPassword" placeholder="Press “Show Connect Info” in OBS" />
+          <div class="pw-field">
+            <input class="pw-input" :type="showPw ? 'text' : 'password'" v-model="obsPassword"
+                   placeholder="Press “Show Connect Info” in OBS" />
+            <button type="button" class="pw-toggle" @click="showPw = !showPw"
+                    :aria-label="showPw ? 'Hide password' : 'Show password'"
+                    :title="showPw ? 'Hide password' : 'Show password'">
+              <svg v-if="showPw" width="18" height="18" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M2.04 12.32a1 1 0 0 1 0-.64C3.42 7.51 7.36 4.5 12 4.5c4.64 0 8.57 3.01 9.96 7.18a1 1 0 0 1 0 .64C20.58 16.49 16.64 19.5 12 19.5c-4.64 0-8.58-3.01-9.96-7.18Z"/>
+                <circle cx="12" cy="12" r="3"/>
+              </svg>
+              <svg v-else width="18" height="18" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3.98 8.22A10.48 10.48 0 0 0 1.93 12c1.29 4.34 5.31 7.5 10.07 7.5.99 0 1.95-.14 2.86-.4M6.23 6.23A10.45 10.45 0 0 1 12 4.5c4.76 0 8.77 3.16 10.07 7.5a10.5 10.5 0 0 1-4.29 5.77"/>
+                <path d="m3 3 18 18"/>
+                <path d="M9.88 9.88a3 3 0 0 0 4.24 4.24"/>
+              </svg>
+            </button>
+          </div>
         </label>
       </div>
       <footer class="ob-foot row">
@@ -322,6 +342,23 @@ function backFromWebsocket() { editMode.value ? router.push('/app') : (step.valu
 
 /* field labels — match the Inputs spec (13/medium/secondary) */
 .field-label { font-size: 13px; line-height: 1.4; font-weight: 500; color: var(--text-secondary); }
+
+/* password field with a show/hide (eye) toggle */
+.pw-field { display: flex; align-items: center; gap: var(--s-2); width: 100%;
+  height: var(--ctrl); padding: 0 var(--s-3); background: var(--surface-sunken);
+  border: 1px solid var(--border); border-radius: var(--r-md);
+  transition: border-color var(--dur) var(--ease); }
+.pw-field:hover { border-color: var(--border-strong); }
+.pw-field:focus-within { border-color: var(--primary); box-shadow: var(--focus); }
+/* the inner input is bare — the wrapper carries the box styling */
+.pw-field .pw-input { flex: 1; min-width: 0; height: 100%; padding: 0; border: 0;
+  background: transparent; color: var(--text); font: 400 14px/1 var(--font); }
+.pw-field .pw-input:hover, .pw-field .pw-input:focus { border: 0; box-shadow: none; outline: none; }
+.pw-toggle { flex: 0 0 auto; display: flex; align-items: center; justify-content: center;
+  width: 20px; height: 20px; padding: 0; border: 0; background: none; cursor: pointer;
+  color: var(--text-muted); transition: color var(--dur) var(--ease); }
+.pw-toggle:hover { color: var(--text-secondary); }
+.pw-toggle:focus-visible { outline: none; color: var(--text); }
 
 /* OBS setup screenshot */
 .obs-shot { display: block; width: 100%; max-width: 348px; height: auto; margin: 0 auto; }

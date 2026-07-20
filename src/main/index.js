@@ -44,6 +44,7 @@ app.whenReady().then(async () => {
 
   cfg = config.load()
   refreshToken = config.loadToken()
+  obsPassword = config.loadObsPassword() || ''
   goal = computeGoal(0, cfg.startGoal, cfg.increment)
 
   windows.createWindow({ preloadPath: path.join(__dirname, '../preload/index.js') })
@@ -191,6 +192,7 @@ ipcMain.handle('get-state', () => ({
   synced,
   count,
   goal,
+  obsPassword,
 }))
 
 ipcMain.handle('save-settings', (_e, patch) => {
@@ -271,6 +273,9 @@ ipcMain.handle('obs-connect', async (_e, { host, port, password }) => {
     cfg.obsHost = host
     cfg.obsPort = port
     config.save(cfg)
+    // Remember the password (encrypted) so re-editing prefills it and the app
+    // can reconnect after a restart. An empty password clears any stored one.
+    config.saveObsPassword(obsPassword)
     return { ok: true }
   } catch (e) {
     return { ok: false, error: e.message }
