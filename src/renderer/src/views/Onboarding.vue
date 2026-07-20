@@ -241,7 +241,10 @@ function backFromWebsocket() { editMode.value ? router.push('/app') : (step.valu
           <div class="select" :class="{ open: selectOpen }">
             <button type="button" class="select-trigger" @click="selectOpen = !selectOpen">
               <span class="select-val"><span class="aa">Aa</span>{{ selected || 'Select a source' }}</span>
-              <span class="caret">⌄</span>
+              <svg class="caret" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="m6 9 6 6 6-6" />
+              </svg>
             </button>
             <div class="select-panel" v-if="selectOpen">
               <button type="button" v-for="s in sources" :key="s" class="select-opt" @click="pickSource(s)">
@@ -379,7 +382,8 @@ function backFromWebsocket() { editMode.value ? router.push('/app') : (step.valu
   color: var(--text); font: 400 14px/1 var(--font); cursor: pointer; }
 .select.open .select-trigger { border-color: var(--primary); box-shadow: var(--focus); }
 .select-val { display: flex; align-items: center; gap: var(--s-2); }
-.select .caret { color: var(--text-muted); }
+.select .caret { display: block; color: var(--text-muted); transition: transform var(--dur) var(--ease); }
+.select.open .caret { transform: rotate(180deg); }
 .aa { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: var(--r-sm);
   background: var(--surface-raised); color: var(--text-muted); font-size: 11px; font-weight: 600; }
 .select-panel { position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 20;
