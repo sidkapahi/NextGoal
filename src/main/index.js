@@ -57,11 +57,15 @@ app.whenReady().then(async () => {
     await windows.showOnboarding()
   }
 
-  createTray({
-    getStatus: () => ({ tracking: !!tracker, count, goal }),
-    onToggleTracking: () => (tracker ? stopTracking() : startTracking()),
-    onReset: () => resetCount(),
-  })
+  // Guard tray creation: a failure here must never abort startup and leave the
+  // app running without its (already-shown) window.
+  try {
+    createTray({
+      getStatus: () => ({ tracking: !!tracker, count, goal }),
+      onToggleTracking: () => (tracker ? stopTracking() : startTracking()),
+      onReset: () => resetCount(),
+    })
+  } catch {}
 
   try {
     updater.init({
