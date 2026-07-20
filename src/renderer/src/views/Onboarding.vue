@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import obsSetupImg from '../assets/obs-setup.png'
 
 const route = useRoute()
 const router = useRouter()
@@ -162,40 +163,8 @@ function backFromWebsocket() { editMode.value ? router.push('/app') : (step.valu
           <h1 class="t-title">Setup OBS</h1>
           <p class="t-body sub">Tools › WebSocket Server Settings › tick Enable.</p>
         </div>
-        <div class="obs-shot" aria-hidden="true">
-          <div class="obs-stage">
-            <!-- OBS Tools menu -->
-            <div class="obs-menu">
-              <div class="obs-menubar">
-                <span class="obs-tab active">Tools</span>
-                <span class="obs-tab">Help</span>
-                <svg class="obs-cursor" width="14" height="18" viewBox="0 0 14 18" fill="none">
-                  <path d="M1 1 L1 15 L4.5 11.5 L6.8 16.5 L8.8 15.6 L6.5 10.6 L11.5 10.6 Z"
-                        fill="#f4f5f7" stroke="#0b0c0f" stroke-width="1" stroke-linejoin="round"/>
-                </svg>
-              </div>
-              <div class="obs-menu-list">
-                <span class="obs-mrow">Auto-Configuration Wizard</span>
-                <span class="obs-mrow">Plugin Manager</span>
-                <span class="obs-mrow">Captions (Experimental)</span>
-                <span class="obs-mrow">Automatic Scene Switcher</span>
-                <span class="obs-mrow">Output Timer</span>
-                <span class="obs-mrow">Scripts</span>
-                <span class="obs-mrow marked">WebSocket Server Settings</span>
-              </div>
-            </div>
-            <!-- WebSocket Server Settings dialog -->
-            <div class="obs-dialog">
-              <div class="obs-dialog-bar"><span class="obs-dialog-ico"></span>WebSocket Server Settings</div>
-              <div class="obs-dialog-body">
-                <span class="obs-section">Plugin Settings</span>
-                <span class="obs-check"><span class="obs-box on">✓</span>Enable WebSocket server</span>
-                <span class="obs-check"><span class="obs-box"></span>Enable System Tray Alerts</span>
-                <span class="obs-check"><span class="obs-box"></span>Enable Debug Logging <span class="obs-q">?</span></span>
-              </div>
-            </div>
-          </div>
-        </div>
+        <img class="obs-shot" :src="obsSetupImg"
+             alt="OBS: Tools › WebSocket Server Settings, with “Enable WebSocket server” ticked" />
         <div class="row" style="gap:var(--s-3)">
           <label class="col f"><span class="field-label">Host</span><input v-model="obsHost" /></label>
           <label class="col f"><span class="field-label">Port</span><input v-model="obsPort" /></label>
@@ -354,41 +323,8 @@ function backFromWebsocket() { editMode.value ? router.push('/app') : (step.valu
 /* field labels — match the Inputs spec (13/medium/secondary) */
 .field-label { font-size: 13px; line-height: 1.4; font-weight: 500; color: var(--text-secondary); }
 
-/* ---- OBS screenshot recreation (Tools menu + WebSocket dialog) ---- */
-.obs-shot { --obs-bar:#2c2f38; --obs-panel:#3a3d47; --obs-line:#22242c;
-  --obs-text:#d6d8de; --obs-dim:#9a9da8; --obs-blue:#2f62c9; --obs-cyan:#17b0c9;
-  width: 100%; }
-.obs-stage { position: relative; width: 100%; max-width: 348px; height: 178px; margin: 0 auto;
-  font-family: -apple-system, 'Segoe UI', sans-serif; }
-
-.obs-menu { position: absolute; left: 4px; top: 0; width: 208px;
-  background: var(--obs-panel); border: 1px solid var(--obs-line); border-radius: 8px;
-  overflow: hidden; box-shadow: 0 10px 26px rgba(0,0,0,.45); }
-.obs-menubar { display: flex; align-items: center; gap: 2px; padding: 4px 6px;
-  background: var(--obs-bar); position: relative; }
-.obs-tab { font-size: 11px; color: var(--obs-text); padding: 2px 7px; border-radius: 3px; }
-.obs-tab.active { background: var(--obs-blue); color: #fff; }
-.obs-cursor { position: absolute; left: 16px; top: 12px; filter: drop-shadow(0 1px 1px rgba(0,0,0,.5)); }
-.obs-menu-list { display: flex; flex-direction: column; padding: 4px 0; }
-.obs-mrow { font-size: 11px; color: var(--obs-text); padding: 3px 12px; white-space: nowrap; }
-.obs-mrow.marked { color: #fff; margin: 2px 6px 0; padding: 3px 6px; border-radius: 3px;
-  outline: 1px solid var(--obs-cyan); background: rgba(23,176,201,.12); }
-
-.obs-dialog { position: absolute; right: 0; top: 44px; width: 202px; z-index: 2;
-  background: var(--obs-panel); border: 1px solid var(--obs-line); border-radius: 8px;
-  overflow: hidden; box-shadow: 0 12px 30px rgba(0,0,0,.5); }
-.obs-dialog-bar { display: flex; align-items: center; gap: 6px; padding: 5px 9px;
-  background: var(--obs-bar); font-size: 10px; color: var(--obs-text); }
-.obs-dialog-ico { width: 9px; height: 9px; border-radius: 2px; background: var(--obs-cyan); flex: 0 0 auto; }
-.obs-dialog-body { padding: 9px 11px; display: flex; flex-direction: column; gap: 7px; }
-.obs-section { font-size: 10px; font-weight: 600; color: var(--obs-dim); }
-.obs-check { display: flex; align-items: center; gap: 7px; font-size: 11px; color: var(--obs-text); }
-.obs-box { width: 12px; height: 12px; border-radius: 2px; border: 1px solid #6a6d78;
-  background: #24262e; flex: 0 0 auto; display: flex; align-items: center; justify-content: center;
-  font-size: 9px; line-height: 1; color: #fff; }
-.obs-box.on { background: var(--obs-blue); border-color: var(--obs-blue); }
-.obs-q { width: 11px; height: 11px; border-radius: 999px; border: 1px solid var(--obs-dim);
-  font-size: 8px; line-height: 9px; text-align: center; color: var(--obs-dim); margin-left: 1px; }
+/* OBS setup screenshot */
+.obs-shot { display: block; width: 100%; max-width: 348px; height: auto; margin: 0 auto; }
 
 .linkbtn { background: none; border: none; color: var(--text-secondary); cursor: pointer;
            font: 500 13px/1.4 var(--font); padding: var(--s-2); }
