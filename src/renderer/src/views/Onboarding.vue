@@ -271,14 +271,13 @@ function backFromWebsocket() { editMode.value ? router.push('/app') : (step.valu
     <!-- ============ STEP 4 — TWITCH ============ -->
     <template v-else-if="step === 'twitch'">
       <div class="ob-body center grow">
-        <div class="badge twitch">
-          <!-- Official Twitch glyph, filled white with eyes cut to the badge colour. -->
-          <svg width="20" height="23" viewBox="0 0 44 51" fill="none" aria-hidden="true">
-            <path d="M9.16667 0L0 9.10714V41.8929H11V51L20.1667 41.8929H27.5L44 25.5V0H9.16667Z" fill="#fff"/>
-            <path d="M34.8334 10.0179H31.1667V20.9464H34.8334V10.0179Z" fill="#9146FF"/>
-            <path d="M24.7499 10.0179H21.0833V20.9464H24.7499V10.0179Z" fill="#9146FF"/>
-          </svg>
-        </div>
+        <!-- Official Twitch logo, standalone (purple glyph on the dark bg). -->
+        <svg class="tw-logo" width="44" height="51" viewBox="0 0 44 51" fill="none" aria-hidden="true">
+          <path d="M40.3333 23.6786L33 30.9643H25.6667L19.25 37.3393V30.9643H11V3.64285H40.3333V23.6786Z" fill="#fff"/>
+          <path d="M9.16667 0L0 9.10714V41.8929H11V51L20.1667 41.8929H27.5L44 25.5V0H9.16667ZM40.3333 23.6786L33 30.9643H25.6667L19.25 37.3393V30.9643H11V3.64286H40.3333V23.6786Z" fill="#9146FF"/>
+          <path d="M34.8334 10.0179H31.1667V20.9464H34.8334V10.0179Z" fill="#9146FF"/>
+          <path d="M24.7499 10.0179H21.0833V20.9464H24.7499V10.0179Z" fill="#9146FF"/>
+        </svg>
         <h1 class="t-title">Link your Twitch account</h1>
         <p class="t-body sub">So NextGoal can count subs in real time. It can only read your sub count — nothing else.</p>
         <div class="card code-card" v-if="userCode">
@@ -291,6 +290,11 @@ function backFromWebsocket() { editMode.value ? router.push('/app') : (step.valu
       </div>
       <footer class="ob-foot col">
         <button class="btn btn--primary btn--full btn--lg" @click="loginTwitch">
+          <svg width="14" height="16" viewBox="0 0 44 51" fill="none" aria-hidden="true">
+            <path d="M9.16667 0L0 9.10714V41.8929H11V51L20.1667 41.8929H27.5L44 25.5V0H9.16667Z" fill="#fff"/>
+            <path d="M34.8334 10.0179H31.1667V20.9464H34.8334V10.0179Z" fill="var(--primary)"/>
+            <path d="M24.7499 10.0179H21.0833V20.9464H24.7499V10.0179Z" fill="var(--primary)"/>
+          </svg>
           {{ userCode ? 'Reopen twitch.tv/activate' : 'Login with Twitch' }}
         </button>
         <button class="btn btn--ghost btn--full" @click="step = 'done'">Skip for now</button>
@@ -336,7 +340,7 @@ function backFromWebsocket() { editMode.value ? router.push('/app') : (step.valu
 .badge { width: 44px; height: 44px; border-radius: var(--r-full); display: flex; align-items: center; justify-content: center; font-size: 22px; color: #fff; }
 .badge.ok { background: var(--status-ok); }
 .badge.err { background: var(--status-error); }
-.badge.twitch { background: #9146FF; }
+.tw-logo { display: block; }
 
 .spinner { width: 40px; height: 40px; border-radius: var(--r-full);
            border: 3px solid var(--surface-raised); border-top-color: var(--primary);
