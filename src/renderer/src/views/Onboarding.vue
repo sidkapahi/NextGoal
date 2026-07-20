@@ -2,6 +2,7 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import obsSetupImg from '../assets/obs-setup.png'
+import obsSourcesImg from '../assets/obs-sources.png'
 
 const route = useRoute()
 const router = useRouter()
@@ -233,7 +234,8 @@ function backFromWebsocket() { editMode.value ? router.push('/app') : (step.valu
           <h1 class="t-title">Connect your text source</h1>
           <p class="t-body sub">We can create the text source in OBS for you. Or select one you’ve already configured.</p>
         </div>
-        <div class="shot">OBS · Sources</div>
+        <img class="obs-shot" :src="obsSourcesImg"
+             alt="OBS Sources panel with the “Sub Goal” text source selected" />
         <label class="col f">
           <span class="t-caption">Source</span>
           <div class="select" :class="{ open: selectOpen }">
@@ -335,10 +337,6 @@ function backFromWebsocket() { editMode.value ? router.push('/app') : (step.valu
            border: 3px solid var(--surface-raised); border-top-color: var(--primary);
            animation: spin 0.8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
-
-.shot { border: 1px dashed var(--border-strong); border-radius: var(--r-md);
-        background: var(--surface-sunken); color: var(--text-disabled);
-        padding: 40px var(--s-4); text-align: center; font-size: 12px; }
 
 /* field labels — match the Inputs spec (13/medium/secondary) */
 .field-label { font-size: 13px; line-height: 1.4; font-weight: 500; color: var(--text-secondary); }
