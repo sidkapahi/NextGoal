@@ -48,6 +48,12 @@ app.whenReady().then(async () => {
 
   windows.createWindow({ preloadPath: path.join(__dirname, '../preload/index.js') })
 
+  // Put a loading screen on top immediately; present() dismisses it once the
+  // real window has painted. Guarded so a splash failure never aborts startup.
+  try {
+    windows.createSplash()
+  } catch {}
+
   // Show the UI first, before tray/updater, so nothing downstream can ever
   // leave the app running with no visible window.
   if (cfg.onboarded) {
