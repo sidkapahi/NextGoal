@@ -74,7 +74,7 @@ body {
 .btn--danger{background:var(--err-500);color:#fff;}
 
 /* inputs */
-input[type=text],input[type=password],input[type=number]{
+input:not([type]),input[type=text],input[type=password],input[type=number]{
   height:var(--ctrl);padding:0 var(--s-3);width:100%;
   background:var(--surface-sunken);border:1px solid var(--border);
   border-radius:var(--r-md);color:var(--text);font:400 14px/1 var(--font);
