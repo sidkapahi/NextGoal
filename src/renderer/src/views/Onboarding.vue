@@ -15,7 +15,8 @@ const editMode = computed(() => route.query.mode === 'edit')
 
 // step ids drive the flow
 const step = ref(editMode.value ? 'websocket' : 'welcome')
-const testState = ref('idle') // idle | testing | success | error
+const testState = ref('idle') // idle | testing | success | error (transient label)
+const testPassed = ref(false) // a valid test has succeeded — gates Connect
 const TOTAL = 4
 
 const obsError = ref('')
@@ -54,14 +55,23 @@ onMounted(async () => {
     selected.value = s.cfg.obsSource || ''
   }
 })
-onUnmounted(() => cleanups.forEach((fn) => fn && fn()))
+onUnmounted(() => { clearResultTimer(); cleanups.forEach((fn) => fn && fn()) })
 
 // ---- Step 1: test the connection, then continue ----
 // Test actually connects to OBS. Connect stays disabled until a test passes,
 // and once it does we skip the old detect screen and go straight to the source
-// step (sources are already loaded here).
+// step (sources are already loaded here). The Success/Error label is transient
+// (reverts to “Test” after a few seconds); testPassed is what gates Connect.
+const RESULT_MS = 5000
+let resultTimer = null
+function clearResultTimer() {
+  if (resultTimer) { clearTimeout(resultTimer); resultTimer = null }
+}
+
 async function testConnection() {
   if (testState.value === 'testing') return
+  clearResultTimer()
+  testPassed.value = false
   testState.value = 'testing'
   obsError.value = ''
   await window.ng.setObsPassword(obsPassword.value)
@@ -72,22 +82,34 @@ async function testConnection() {
   })
   if (res.ok) {
     await loadSources()
+    testPassed.value = true
     testState.value = 'success'
   } else {
     obsError.value = res.error || 'Could not connect.'
     testState.value = 'error'
   }
+  // Fade the result back to “Test” after a moment. A passing test keeps
+  // Connect enabled via testPassed even after the label reverts.
+  resultTimer = setTimeout(() => {
+    if (testState.value === 'success' || testState.value === 'error') {
+      testState.value = 'idle'
+      obsError.value = ''
+    }
+    resultTimer = null
+  }, RESULT_MS)
 }
 
 // Editing a field invalidates a prior test result.
 function resetTest() {
-  if (testState.value === 'idle') return
+  clearResultTimer()
+  if (testState.value === 'idle' && !testPassed.value) return
   testState.value = 'idle'
+  testPassed.value = false
   obsError.value = ''
 }
 
 function connectObs() {
-  if (testState.value !== 'success') return
+  if (!testPassed.value) return
   if (editMode.value) router.push('/app')
   else step.value = 'source'
 }
@@ -214,14 +236,16 @@ function backFromWebsocket() { editMode.value ? router.push('/app') : (step.valu
       <footer class="ob-foot row">
         <button class="btn btn--secondary" @click="backFromWebsocket">Back</button>
         <div class="grow"></div>
-        <!-- Test result: turns into Success/Error once run (see Figma test states). -->
-        <span v-if="testState === 'success'" class="test-result ok">
+        <!-- Test result: turns into Success/Error once run (see Figma test states).
+             Both are clickable to re-test, and revert to “Test” after a few seconds. -->
+        <button v-if="testState === 'success'" type="button" class="test-result ok" @click="testConnection"
+                title="Test again">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <circle cx="12" cy="12" r="10" fill="currentColor" />
             <path d="m8 12 2.5 2.5L16 9" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
           </svg>
           Success
-        </span>
+        </button>
         <button v-else-if="testState === 'error'" type="button" class="test-result err" @click="testConnection"
                 title="Test again">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -233,7 +257,7 @@ function backFromWebsocket() { editMode.value ? router.push('/app') : (step.valu
         <button v-else type="button" class="btn btn--ghost" :disabled="testState === 'testing'" @click="testConnection">
           {{ testState === 'testing' ? 'Testing…' : 'Test' }}
         </button>
-        <button class="btn btn--primary" :disabled="testState !== 'success'" @click="connectObs">Connect</button>
+        <button class="btn btn--primary" :disabled="!testPassed" @click="connectObs">Connect</button>
       </footer>
     </template>
 
@@ -350,7 +374,7 @@ function backFromWebsocket() { editMode.value ? router.push('/app') : (step.valu
 .test-result { display: inline-flex; align-items: center; gap: var(--s-1);
   padding: 0; border: none; background: none; font: 500 13px/1.4 var(--font); }
 .test-result svg { flex: 0 0 auto; }
-.test-result.ok { color: var(--status-ok); cursor: default; }
+.test-result.ok { color: var(--status-ok); cursor: pointer; }
 .test-result.err { color: var(--status-error); cursor: pointer; }
 
 /* field labels — match the Inputs spec (13/medium/secondary) */
