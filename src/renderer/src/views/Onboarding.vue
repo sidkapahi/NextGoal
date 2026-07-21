@@ -211,7 +211,7 @@ function backFromWebsocket() { editMode.value ? router.push('/app') : (step.valu
 </script>
 
 <template>
-  <div class="ob">
+  <div class="ob" :class="{ 'ob--center': step === 'twitch' }">
     <!-- HEADER: dots + step label -->
     <header class="ob-head" v-if="showHeader">
       <div class="dots">
@@ -404,6 +404,10 @@ function backFromWebsocket() { editMode.value ? router.push('/app') : (step.valu
 
 <style scoped>
 .ob { height: 100%; display: flex; flex-direction: column; }
+/* Steps with no footer (e.g. Twitch) float the step header so the body centers
+   in the whole window instead of only the space below the header. */
+.ob--center { position: relative; }
+.ob--center .ob-head { position: absolute; top: 0; left: 0; right: 0; }
 .ob-head { display: flex; flex-direction: column; align-items: center; gap: var(--s-2); padding: 40px 40px 0; }
 .ob-body { flex: 1; display: flex; flex-direction: column; padding: var(--s-6) 40px; gap: var(--s-4); min-height: 0; }
 .ob-foot { padding: var(--s-5) 40px var(--s-8); gap: var(--s-3); }
