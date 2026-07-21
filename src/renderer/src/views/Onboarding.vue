@@ -17,7 +17,7 @@ const editMode = computed(() => route.query.mode === 'edit')
 const step = ref(editMode.value ? 'websocket' : 'welcome')
 const testState = ref('idle') // idle | testing | success | error (transient label)
 const testPassed = ref(false) // a valid test has succeeded — gates Connect
-const TOTAL = 4
+const TOTAL = 3
 
 const obsError = ref('')
 const obsHost = ref('localhost')
@@ -36,18 +36,17 @@ const userCode = ref('')
 const verifyUri = ref('https://www.twitch.tv/activate')
 const loginError = ref('')
 
-const testCount = ref(0)
 const cleanups = []
 
-const headerSteps = { websocket: 1, source: 2, twitch: 3, done: 4 }
+const headerSteps = { websocket: 1, source: 2, twitch: 3 }
 const stepNum = computed(() => headerSteps[step.value] || 0)
 const showHeader = computed(() => step.value in headerSteps)
 
 onMounted(async () => {
   if (!window.ng) return
-  cleanups.push(window.ng.onTwitchLoginOk(() => { step.value = 'done' }))
+  // Twitch is the last step — once it links, jump straight into the app.
+  cleanups.push(window.ng.onTwitchLoginOk(() => window.ng.completeOnboarding()))
   cleanups.push(window.ng.onTwitchLoginFailed((m) => (loginError.value = m)))
-  cleanups.push(window.ng.onCountChanged(({ count }) => (testCount.value = count)))
   if (editMode.value) {
     const s = await window.ng.getState()
     obsHost.value = s.cfg.obsHost
@@ -205,8 +204,6 @@ async function loginTwitch() {
   window.ng.openExternal(res.verificationUri)
 }
 
-function fireTest() { window.ng.fireTestSub() }
-function finish() { window.ng.completeOnboarding() }
 function backFromWebsocket() { editMode.value ? router.push('/app') : (step.value = 'welcome') }
 </script>
 
@@ -385,20 +382,6 @@ function backFromWebsocket() { editMode.value ? router.push('/app') : (step.valu
         <p v-if="loginError" class="t-caption err">{{ loginError }}</p>
       </div>
     </template>
-
-    <!-- ============ DONE ============ -->
-    <template v-else-if="step === 'done'">
-      <div class="ob-body center grow">
-        <div class="badge ok">✓</div>
-        <h1 class="t-title">Connected</h1>
-        <p class="t-body sub">You’re all good to go, all that’s left is setting your starting goal and increment level.</p>
-        <div class="preview"><span class="t-title">{{ testCount }}</span><span class="t-title sep">/</span><span class="t-title live">5</span></div>
-      </div>
-      <footer class="ob-foot col">
-        <button class="btn btn--secondary btn--full" @click="fireTest">Fire a test sub</button>
-        <button class="btn btn--primary btn--full btn--lg" @click="finish">Let’s go!</button>
-      </footer>
-    </template>
   </div>
 </template>
 
@@ -428,8 +411,6 @@ function backFromWebsocket() { editMode.value ? router.push('/app') : (step.valu
 .welcome-logo { flex: 1; width: 100%; min-height: 0; display: flex; align-items: center; justify-content: center; }
 .welcome-logo img { width: 100%; max-width: 256px; height: auto; }
 
-.badge { width: 44px; height: 44px; border-radius: var(--r-full); display: flex; align-items: center; justify-content: center; font-size: 22px; color: #fff; }
-.badge.ok { background: var(--status-ok); }
 .twitch-step { gap: var(--s-6); }
 .tw-logo { display: block; }
 .twitch-copy { display: flex; flex-direction: column; align-items: center; gap: var(--s-2); }
@@ -470,9 +451,6 @@ function backFromWebsocket() { editMode.value ? router.push('/app') : (step.valu
 
 .code-card { padding: var(--s-6); align-items: center; display: flex; flex-direction: column; gap: var(--s-2); width: 100%; }
 .code { font-size: 32px; font-weight: 700; letter-spacing: 2px; }
-.preview { display: flex; align-items: baseline; gap: 2px; }
-.preview .sep { color: var(--text-disabled); }
-.preview .live { color: var(--status-live); }
 
 /* custom source dropdown */
 .select { position: relative; width: 100%; }
