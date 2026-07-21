@@ -15,7 +15,7 @@ const editMode = computed(() => route.query.mode === 'edit')
 
 // step ids drive the flow
 const step = ref(editMode.value ? 'websocket' : 'welcome')
-const detectState = ref('looking') // looking | connected | notfound
+const testState = ref('idle') // idle | testing | success | error
 const TOTAL = 4
 
 const obsError = ref('')
@@ -37,7 +37,7 @@ const loginError = ref('')
 const testCount = ref(0)
 const cleanups = []
 
-const headerSteps = { websocket: 1, detect: 2, source: 3, twitch: 4, done: 4 }
+const headerSteps = { websocket: 1, source: 2, twitch: 3, done: 4 }
 const stepNum = computed(() => headerSteps[step.value] || 0)
 const showHeader = computed(() => step.value in headerSteps)
 
@@ -56,10 +56,13 @@ onMounted(async () => {
 })
 onUnmounted(() => cleanups.forEach((fn) => fn && fn()))
 
-// ---- Step 1 -> Step 2: connect + detect ----
-async function connectObs() {
-  step.value = 'detect'
-  detectState.value = 'looking'
+// ---- Step 1: test the connection, then continue ----
+// Test actually connects to OBS. Connect stays disabled until a test passes,
+// and once it does we skip the old detect screen and go straight to the source
+// step (sources are already loaded here).
+async function testConnection() {
+  if (testState.value === 'testing') return
+  testState.value = 'testing'
   obsError.value = ''
   await window.ng.setObsPassword(obsPassword.value)
   const res = await window.ng.obsConnect({
@@ -68,13 +71,25 @@ async function connectObs() {
     password: obsPassword.value,
   })
   if (res.ok) {
-    detectState.value = 'connected'
     await loadSources()
-    setTimeout(() => { if (step.value === 'detect') step.value = 'source' }, 1000)
+    testState.value = 'success'
   } else {
     obsError.value = res.error || 'Could not connect.'
-    detectState.value = 'notfound'
+    testState.value = 'error'
   }
+}
+
+// Editing a field invalidates a prior test result.
+function resetTest() {
+  if (testState.value === 'idle') return
+  testState.value = 'idle'
+  obsError.value = ''
+}
+
+function connectObs() {
+  if (testState.value !== 'success') return
+  if (editMode.value) router.push('/app')
+  else step.value = 'source'
 }
 
 // ---- Step 3: source ----
@@ -169,13 +184,13 @@ function backFromWebsocket() { editMode.value ? router.push('/app') : (step.valu
         <img class="obs-shot" :src="obsSetupImg"
              alt="OBS: Tools › WebSocket Server Settings, with “Enable WebSocket server” ticked" />
         <div class="row" style="gap:var(--s-3)">
-          <label class="col f"><span class="field-label">Host</span><input v-model="obsHost" /></label>
-          <label class="col f"><span class="field-label">Port</span><input v-model="obsPort" /></label>
+          <label class="col f"><span class="field-label">Host</span><input v-model="obsHost" @input="resetTest" /></label>
+          <label class="col f"><span class="field-label">Port</span><input v-model="obsPort" @input="resetTest" /></label>
         </div>
         <label class="col f">
           <span class="field-label">Password (if you set one)</span>
           <div class="pw-field">
-            <input class="pw-input" :type="showPw ? 'text' : 'password'" v-model="obsPassword"
+            <input class="pw-input" :type="showPw ? 'text' : 'password'" v-model="obsPassword" @input="resetTest"
                    placeholder="Press “Show Connect Info” in OBS" />
             <button type="button" class="pw-toggle" @click="showPw = !showPw"
                     :aria-label="showPw ? 'Hide password' : 'Show password'"
@@ -194,40 +209,35 @@ function backFromWebsocket() { editMode.value ? router.push('/app') : (step.valu
             </button>
           </div>
         </label>
+        <p v-if="testState === 'error' && obsError" class="t-caption err">{{ obsError }}</p>
       </div>
       <footer class="ob-foot row">
         <button class="btn btn--secondary" @click="backFromWebsocket">Back</button>
         <div class="grow"></div>
-        <button class="btn btn--primary" @click="connectObs">Connect</button>
+        <!-- Test result: turns into Success/Error once run (see Figma test states). -->
+        <span v-if="testState === 'success'" class="test-result ok">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <circle cx="12" cy="12" r="10" fill="currentColor" />
+            <path d="m8 12 2.5 2.5L16 9" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+          Success
+        </span>
+        <button v-else-if="testState === 'error'" type="button" class="test-result err" @click="testConnection"
+                title="Test again">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <circle cx="12" cy="12" r="10" fill="currentColor" />
+            <path d="m9 9 6 6M15 9l-6 6" stroke="#fff" stroke-width="2" stroke-linecap="round" />
+          </svg>
+          Error
+        </button>
+        <button v-else type="button" class="btn btn--ghost" :disabled="testState === 'testing'" @click="testConnection">
+          {{ testState === 'testing' ? 'Testing…' : 'Test' }}
+        </button>
+        <button class="btn btn--primary" :disabled="testState !== 'success'" @click="connectObs">Connect</button>
       </footer>
     </template>
 
-    <!-- ============ STEP 2 — DETECTING ============ -->
-    <template v-else-if="step === 'detect'">
-      <div class="ob-body center grow">
-        <template v-if="detectState === 'looking'">
-          <div class="spinner"></div>
-          <h1 class="t-title">Looking for OBS…</h1>
-          <p class="t-body sub">Make sure OBS is open and the WebSocket server is enabled for port {{ obsPort }}.</p>
-        </template>
-        <template v-else-if="detectState === 'connected'">
-          <div class="badge ok">✓</div>
-          <h1 class="t-title">Connected</h1>
-          <p class="t-body sub">Next, we’ve gotta connect the text source so we know where to update your sub goal + count!</p>
-        </template>
-        <template v-else>
-          <div class="badge err">✕</div>
-          <h1 class="t-title">Couldn’t find OBS</h1>
-          <p class="t-body sub">Make sure your information is correct and you hit ‘Apply’ in the WebSocket settings before trying to connect to NextGoal.</p>
-          <button class="btn btn--secondary" @click="connectObs">Refresh</button>
-        </template>
-      </div>
-      <footer class="ob-foot" v-if="detectState === 'notfound'">
-        <button class="linkbtn" @click="step = 'websocket'">Edit Details →</button>
-      </footer>
-    </template>
-
-    <!-- ============ STEP 3 — ADD TEXT SOURCE ============ -->
+    <!-- ============ STEP 2 — ADD TEXT SOURCE ============ -->
     <template v-else-if="step === 'source'">
       <div class="ob-body col left">
         <div class="col" style="gap:var(--s-1)">
@@ -268,7 +278,7 @@ function backFromWebsocket() { editMode.value ? router.push('/app') : (step.valu
       </footer>
     </template>
 
-    <!-- ============ STEP 4 — TWITCH ============ -->
+    <!-- ============ STEP 3 — TWITCH ============ -->
     <template v-else-if="step === 'twitch'">
       <div class="ob-body center grow twitch-step">
         <!-- Top logo: the supplied twitch.svg (two-colour), used as-is. -->
@@ -332,15 +342,16 @@ function backFromWebsocket() { editMode.value ? router.push('/app') : (step.valu
 
 .badge { width: 44px; height: 44px; border-radius: var(--r-full); display: flex; align-items: center; justify-content: center; font-size: 22px; color: #fff; }
 .badge.ok { background: var(--status-ok); }
-.badge.err { background: var(--status-error); }
 .twitch-step { gap: var(--s-6); }
 .tw-logo { display: block; }
 .twitch-copy { display: flex; flex-direction: column; align-items: center; gap: var(--s-2); }
 
-.spinner { width: 40px; height: 40px; border-radius: var(--r-full);
-           border: 3px solid var(--surface-raised); border-top-color: var(--primary);
-           animation: spin 0.8s linear infinite; }
-@keyframes spin { to { transform: rotate(360deg); } }
+/* test result label (Setup OBS footer) — Test → Success/Error */
+.test-result { display: inline-flex; align-items: center; gap: var(--s-1);
+  padding: 0; border: none; background: none; font: 500 13px/1.4 var(--font); }
+.test-result svg { flex: 0 0 auto; }
+.test-result.ok { color: var(--status-ok); cursor: default; }
+.test-result.err { color: var(--status-error); cursor: pointer; }
 
 /* field labels — match the Inputs spec (13/medium/secondary) */
 .field-label { font-size: 13px; line-height: 1.4; font-weight: 500; color: var(--text-secondary); }
