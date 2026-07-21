@@ -75,6 +75,13 @@ async function onSync(e) {
 function editSetup() {
   router.push({ path: '/onboarding', query: { mode: 'edit' } })
 }
+
+const confirmReset = ref(false)
+async function resetData() {
+  await window.ng.resetAllData()
+  confirmReset.value = false
+  router.push('/onboarding')
+}
 </script>
 
 <template>
@@ -104,6 +111,16 @@ function editSetup() {
             <span class="t-caption">{{ obsHost }}:{{ obsPort }} · Authenticated</span>
           </div>
           <button class="btn btn--ghost" @click="editSetup">Edit</button>
+        </div>
+        <div class="reset-row">
+          <template v-if="!confirmReset">
+            <button class="linklike danger" @click="confirmReset = true">Delete all my data</button>
+          </template>
+          <template v-else>
+            <span class="t-caption">Erases settings, Twitch login &amp; OBS password.</span>
+            <button class="btn btn--ghost" style="height:26px" @click="confirmReset = false">Cancel</button>
+            <button class="btn btn--danger" style="height:26px" @click="resetData">Delete</button>
+          </template>
         </div>
       </section>
 
@@ -165,6 +182,11 @@ function editSetup() {
   background: var(--surface-raised); color: var(--text-muted); font-size: 11px; font-weight: 600; }
 
 .field { gap: var(--s-2); flex: 1; }
+
+.reset-row { display: flex; align-items: center; justify-content: flex-end; gap: var(--s-2); min-height: 26px; }
+.linklike { background: none; border: 0; padding: 2px 4px; cursor: pointer;
+  font: 500 12px/1.4 var(--font); color: var(--text-muted); }
+.linklike.danger:hover { color: var(--status-error); }
 
 .counter-area { flex: 1; display: flex; align-items: center; justify-content: center; min-height: 0; }
 .counter { display: flex; align-items: baseline; gap: 2px;

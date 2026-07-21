@@ -8,7 +8,80 @@ const APP_W = 460
 const APP_H = 640
 
 let win = null
+let splash = null
 let mode = 'app'
+
+// Self-contained loading screen shown the instant the app process is ready,
+// while the (heavier) renderer window loads behind it. Kept as an inline data
+// URL so it paints immediately and needs no build-path resolution.
+function splashHtml() {
+  return `<!doctype html><html><head><meta charset="utf-8"><style>
+    html,body{margin:0;height:100%;background:transparent;overflow:hidden;cursor:default;
+      font-family:-apple-system,'Segoe UI',Roboto,sans-serif;-webkit-user-select:none;user-select:none;}
+    .card{height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;
+      background:#0B0C0F;border:1px solid #1D2028;border-radius:16px;box-sizing:border-box;}
+    .logo{position:relative;width:84px;height:84px;display:flex;align-items:center;justify-content:center;}
+    .ring{position:absolute;inset:0;border-radius:50%;border:3px solid #1D2028;border-top-color:#7C6BE8;
+      animation:spin .9s linear infinite;}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .txt{display:flex;flex-direction:column;align-items:center;gap:4px;}
+    .name{font-size:16px;font-weight:600;letter-spacing:.2px;color:#D7DBE2;}
+    .sub{font-size:12px;color:#8B93A3;}
+  </style></head><body>
+    <div class="card">
+      <div class="logo">
+        <div class="ring"></div>
+        <svg width="38" height="44" viewBox="0 0 120 150" fill="none" aria-hidden="true">
+          <path d="M18 92 L60 54 L102 92" stroke="#FF6B35" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M18 124 L60 86 L102 124" stroke="#7C6BE8" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <div class="txt"><div class="name">NextGoal</div><div class="sub">Loading…</div></div>
+    </div>
+  </body></html>`
+}
+
+function createSplash() {
+  splash = new BrowserWindow({
+    width: 280,
+    height: 280,
+    frame: false,
+    transparent: true,
+    resizable: false,
+    movable: false,
+    minimizable: false,
+    maximizable: false,
+    fullscreenable: false,
+    skipTaskbar: true,
+    hasShadow: false,
+    alwaysOnTop: true,
+    show: false,
+    backgroundColor: '#00000000',
+    webPreferences: { contextIsolation: true, nodeIntegration: false },
+  })
+  // Sit above normal windows (and most system UI) until the app takes over.
+  splash.setAlwaysOnTop(true, 'screen-saver')
+  splash.once('ready-to-show', () => {
+    if (splash && !splash.isDestroyed()) {
+      splash.center()
+      splash.show()
+    }
+  })
+  splash.on('closed', () => {
+    splash = null
+  })
+  splash.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(splashHtml()))
+  return splash
+}
+
+function closeSplash() {
+  if (splash && !splash.isDestroyed()) {
+    try {
+      splash.close()
+    } catch {}
+  }
+  splash = null
+}
 
 // Lightweight main-process log so packaged startup failures are diagnosable.
 // Written to <userData>/ng-main.log.
@@ -74,19 +147,36 @@ function createWindow({ preloadPath }) {
   return win
 }
 
-// Show the window immediately, then load content into it. Showing up front
-// (rather than after awaiting the load) guarantees a visible window even if the
-// renderer is slow or fails to load — the background is dark, so there's no
-// flash. Callers that want it hidden (start-minimized) hide it afterward.
+// Load content into the window while the splash covers the blank load, then
+// reveal the window (on first paint) and dismiss the splash. A hard timeout and
+// a did-fail-load handler both fall back to revealing, so a slow or failed load
+// can never leave the splash stuck on screen with no window behind it.
 async function present(hashMode) {
   if (!win) return
   win.center()
-  win.show()
-  win.focus()
+
+  let revealed = false
+  const reveal = () => {
+    if (revealed) return
+    revealed = true
+    if (win && !win.isDestroyed()) {
+      win.show()
+      win.focus()
+    }
+    closeSplash()
+  }
+
+  win.once('ready-to-show', reveal)
+  win.webContents.once('did-fail-load', reveal)
+  const timer = setTimeout(reveal, 10000)
+
   try {
     await loadRenderer(win, hashMode)
   } catch (e) {
     logMain(`loadRenderer(${hashMode}) failed: ${(e && e.message) || e}`)
+  } finally {
+    clearTimeout(timer)
+    reveal()
   }
 }
 
@@ -125,6 +215,8 @@ function getMode() {
 
 module.exports = {
   createWindow,
+  createSplash,
+  closeSplash,
   showOnboarding,
   showApp,
   toggleWindow,

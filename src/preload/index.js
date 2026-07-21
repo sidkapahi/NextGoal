@@ -37,6 +37,7 @@ contextBridge.exposeInMainWorld('ng', {
 
   // windowing
   completeOnboarding: () => ipcRenderer.invoke('onboarding-complete'),
+  resetAllData: () => ipcRenderer.invoke('reset-all-data'),
   openExternal: (url) => ipcRenderer.invoke('open-external', url),
   installUpdate: () => ipcRenderer.invoke('install-update'),
 

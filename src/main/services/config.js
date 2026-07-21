@@ -98,4 +98,67 @@ function clearToken() {
   }
 }
 
-module.exports = { DEFAULTS, load, save, saveToken, loadToken, clearToken }
+// ---- OBS WebSocket password, encrypted at rest ----
+// Stored in a dedicated file (not settings.json) and encrypted with the OS
+// keychain when available, mirroring the refresh-token handling.
+
+function obsPwPath() {
+  return path.join(userDir(), 'obs-pw.enc')
+}
+function legacyObsPwPath() {
+  return path.join(userDir(), 'obs-pw.plain')
+}
+
+function saveObsPassword(pw) {
+  // An empty password means "no password" — clear any stored value.
+  if (!pw) {
+    clearObsPassword()
+    return true
+  }
+  if (safeStorage.isEncryptionAvailable()) {
+    try {
+      fs.writeFileSync(obsPwPath(), safeStorage.encryptString(pw))
+      try {
+        fs.unlinkSync(legacyObsPwPath())
+      } catch {}
+      return true
+    } catch {}
+  }
+  try {
+    fs.writeFileSync(legacyObsPwPath(), pw, { mode: 0o600 })
+  } catch {}
+  return false
+}
+
+function loadObsPassword() {
+  if (safeStorage.isEncryptionAvailable()) {
+    try {
+      return safeStorage.decryptString(fs.readFileSync(obsPwPath())) || ''
+    } catch {}
+  }
+  try {
+    return fs.readFileSync(legacyObsPwPath(), 'utf8') || ''
+  } catch {
+    return ''
+  }
+}
+
+function clearObsPassword() {
+  for (const p of [obsPwPath(), legacyObsPwPath()]) {
+    try {
+      fs.unlinkSync(p)
+    } catch {}
+  }
+}
+
+module.exports = {
+  DEFAULTS,
+  load,
+  save,
+  saveToken,
+  loadToken,
+  clearToken,
+  saveObsPassword,
+  loadObsPassword,
+  clearObsPassword,
+}

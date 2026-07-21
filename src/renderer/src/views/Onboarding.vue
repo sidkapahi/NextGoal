@@ -1,6 +1,11 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import obsSetupImg from '../assets/obs-setup.png'
+import obsSourcesImg from '../assets/obs-sources.png'
+import twitchLogo from '../assets/twitch.svg'
+import twitchWhite from '../assets/twitch-white.svg'
+import welcomeLogo from '../assets/welcome-logo.svg'
 
 const route = useRoute()
 const router = useRouter()
@@ -17,6 +22,7 @@ const obsError = ref('')
 const obsHost = ref('localhost')
 const obsPort = ref(4455)
 const obsPassword = ref('')
+const showPw = ref(false)
 
 const sources = ref([])
 const selected = ref('')
@@ -44,6 +50,7 @@ onMounted(async () => {
     const s = await window.ng.getState()
     obsHost.value = s.cfg.obsHost
     obsPort.value = s.cfg.obsPort
+    obsPassword.value = s.obsPassword || ''
     selected.value = s.cfg.obsSource || ''
   }
 })
@@ -137,16 +144,13 @@ function backFromWebsocket() { editMode.value ? router.push('/app') : (step.valu
 
     <!-- ============ WELCOME ============ -->
     <template v-if="step === 'welcome'">
-      <div class="ob-body">
-        <div class="col welcome-top">
+      <div class="ob-body welcome">
+        <div class="welcome-copy">
           <h1 class="t-title">Welcome to NextGoal</h1>
           <p class="t-body sub">A sub goal that raises itself. Every time you hit the target, the next one appears automatically.</p>
         </div>
-        <div class="grow center">
-          <svg class="carets" width="120" height="150" viewBox="0 0 120 150" fill="none" aria-hidden="true">
-            <path d="M12 96 L60 52 L108 96" stroke="var(--accent-500)" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
-            <path d="M12 132 L60 88 L108 132" stroke="var(--primary)" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
+        <div class="welcome-logo">
+          <img :src="welcomeLogo" width="256" height="256" alt="" />
         </div>
       </div>
       <footer class="ob-foot col">
@@ -162,14 +166,33 @@ function backFromWebsocket() { editMode.value ? router.push('/app') : (step.valu
           <h1 class="t-title">Setup OBS</h1>
           <p class="t-body sub">Tools › WebSocket Server Settings › tick Enable.</p>
         </div>
-        <div class="shot">OBS · Tools › WebSocket Server Settings</div>
+        <img class="obs-shot" :src="obsSetupImg"
+             alt="OBS: Tools › WebSocket Server Settings, with “Enable WebSocket server” ticked" />
         <div class="row" style="gap:var(--s-3)">
-          <label class="col f"><span class="t-caption">Host</span><input v-model="obsHost" /></label>
-          <label class="col f" style="max-width:130px"><span class="t-caption">Port</span><input v-model="obsPort" /></label>
+          <label class="col f"><span class="field-label">Host</span><input v-model="obsHost" /></label>
+          <label class="col f"><span class="field-label">Port</span><input v-model="obsPort" /></label>
         </div>
         <label class="col f">
-          <span class="t-caption">Password (if you set one)</span>
-          <input type="password" v-model="obsPassword" placeholder="Press “Show Connect Info” in OBS" />
+          <span class="field-label">Password (if you set one)</span>
+          <div class="pw-field">
+            <input class="pw-input" :type="showPw ? 'text' : 'password'" v-model="obsPassword"
+                   placeholder="Press “Show Connect Info” in OBS" />
+            <button type="button" class="pw-toggle" @click="showPw = !showPw"
+                    :aria-label="showPw ? 'Hide password' : 'Show password'"
+                    :title="showPw ? 'Hide password' : 'Show password'">
+              <svg v-if="showPw" width="18" height="18" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M2.04 12.32a1 1 0 0 1 0-.64C3.42 7.51 7.36 4.5 12 4.5c4.64 0 8.57 3.01 9.96 7.18a1 1 0 0 1 0 .64C20.58 16.49 16.64 19.5 12 19.5c-4.64 0-8.58-3.01-9.96-7.18Z"/>
+                <circle cx="12" cy="12" r="3"/>
+              </svg>
+              <svg v-else width="18" height="18" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3.98 8.22A10.48 10.48 0 0 0 1.93 12c1.29 4.34 5.31 7.5 10.07 7.5.99 0 1.95-.14 2.86-.4M6.23 6.23A10.45 10.45 0 0 1 12 4.5c4.76 0 8.77 3.16 10.07 7.5a10.5 10.5 0 0 1-4.29 5.77"/>
+                <path d="m3 3 18 18"/>
+                <path d="M9.88 9.88a3 3 0 0 0 4.24 4.24"/>
+              </svg>
+            </button>
+          </div>
         </label>
       </div>
       <footer class="ob-foot row">
@@ -211,13 +234,17 @@ function backFromWebsocket() { editMode.value ? router.push('/app') : (step.valu
           <h1 class="t-title">Connect your text source</h1>
           <p class="t-body sub">We can create the text source in OBS for you. Or select one you’ve already configured.</p>
         </div>
-        <div class="shot">OBS · Sources</div>
+        <img class="obs-shot" :src="obsSourcesImg"
+             alt="OBS Sources panel with the “Sub Goal” text source selected" />
         <label class="col f">
           <span class="t-caption">Source</span>
           <div class="select" :class="{ open: selectOpen }">
             <button type="button" class="select-trigger" @click="selectOpen = !selectOpen">
               <span class="select-val"><span class="aa">Aa</span>{{ selected || 'Select a source' }}</span>
-              <span class="caret">⌄</span>
+              <svg class="caret" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="m6 9 6 6 6-6" />
+              </svg>
             </button>
             <div class="select-panel" v-if="selectOpen">
               <button type="button" v-for="s in sources" :key="s" class="select-opt" @click="pickSource(s)">
@@ -243,15 +270,18 @@ function backFromWebsocket() { editMode.value ? router.push('/app') : (step.valu
 
     <!-- ============ STEP 4 — TWITCH ============ -->
     <template v-else-if="step === 'twitch'">
-      <div class="ob-body center grow">
-        <div class="badge twitch">
-          <svg width="22" height="24" viewBox="0 0 24 28" fill="none" aria-hidden="true">
-            <path d="M4 0 L1 6 v20 h7 v3 h4 l3-3 h5 l4-4 V0 Z" fill="#fff"/>
-            <path d="M6 4 v14 h4 V4 Z M14 4 v14 h4 V4 Z" fill="#9146FF"/>
-          </svg>
+      <div class="ob-body center grow twitch-step">
+        <!-- Top logo: the supplied twitch.svg (two-colour), used as-is. -->
+        <img class="tw-logo" :src="twitchLogo" width="44" height="51" alt="Twitch" />
+        <div class="twitch-copy">
+          <h1 class="t-title">Link your Twitch account</h1>
+          <p class="t-body sub">So NextGoal can count subs in real time. It can only read your sub count — nothing else.</p>
         </div>
-        <h1 class="t-title">Link your Twitch account</h1>
-        <p class="t-body sub">So NextGoal can count subs in real time. It can only read your sub count — nothing else.</p>
+        <button class="btn btn--primary" @click="loginTwitch">
+          <!-- Button icon: separate white mark (twitch-white.svg). -->
+          <img :src="twitchWhite" width="14" height="16" alt="" />
+          {{ userCode ? 'Reopen twitch.tv/activate' : 'Login with Twitch' }}
+        </button>
         <div class="card code-card" v-if="userCode">
           <span class="t-micro">Enter this code</span>
           <span class="code tabular">{{ userCode }}</span>
@@ -260,12 +290,6 @@ function backFromWebsocket() { editMode.value ? router.push('/app') : (step.valu
         <p v-if="userCode" class="t-caption mute">Waiting for you to authorize…</p>
         <p v-if="loginError" class="t-caption err">{{ loginError }}</p>
       </div>
-      <footer class="ob-foot col">
-        <button class="btn btn--primary btn--full btn--lg" @click="loginTwitch">
-          {{ userCode ? 'Reopen twitch.tv/activate' : 'Login with Twitch' }}
-        </button>
-        <button class="btn btn--ghost btn--full" @click="step = 'done'">Skip for now</button>
-      </footer>
     </template>
 
     <!-- ============ DONE ============ -->
@@ -301,22 +325,45 @@ function backFromWebsocket() { editMode.value ? router.push('/app') : (step.valu
 .mute { color: var(--text-muted); text-align: center; }
 .err { color: var(--status-error); }
 .f { gap: var(--s-2); flex: 1; }
-.welcome-top { gap: var(--s-3); text-align: center; align-items: center; padding-top: var(--s-8); }
-.carets { display: block; }
+.welcome { align-items: center; gap: var(--s-6); }
+.welcome-copy { display: flex; flex-direction: column; align-items: center; gap: var(--s-2); text-align: center; }
+.welcome-logo { flex: 1; width: 100%; min-height: 0; display: flex; align-items: center; justify-content: center; }
+.welcome-logo img { width: 100%; max-width: 256px; height: auto; }
 
 .badge { width: 44px; height: 44px; border-radius: var(--r-full); display: flex; align-items: center; justify-content: center; font-size: 22px; color: #fff; }
 .badge.ok { background: var(--status-ok); }
 .badge.err { background: var(--status-error); }
-.badge.twitch { background: #9146FF; }
+.twitch-step { gap: var(--s-6); }
+.tw-logo { display: block; }
+.twitch-copy { display: flex; flex-direction: column; align-items: center; gap: var(--s-2); }
 
 .spinner { width: 40px; height: 40px; border-radius: var(--r-full);
            border: 3px solid var(--surface-raised); border-top-color: var(--primary);
            animation: spin 0.8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-.shot { border: 1px dashed var(--border-strong); border-radius: var(--r-md);
-        background: var(--surface-sunken); color: var(--text-disabled);
-        padding: 40px var(--s-4); text-align: center; font-size: 12px; }
+/* field labels — match the Inputs spec (13/medium/secondary) */
+.field-label { font-size: 13px; line-height: 1.4; font-weight: 500; color: var(--text-secondary); }
+
+/* password field with a show/hide (eye) toggle */
+.pw-field { display: flex; align-items: center; gap: var(--s-2); width: 100%;
+  height: var(--ctrl); padding: 0 var(--s-3); background: var(--surface-sunken);
+  border: 1px solid var(--border); border-radius: var(--r-md);
+  transition: border-color var(--dur) var(--ease); }
+.pw-field:hover { border-color: var(--border-strong); }
+.pw-field:focus-within { border-color: var(--primary); box-shadow: var(--focus); }
+/* the inner input is bare — the wrapper carries the box styling */
+.pw-field .pw-input { flex: 1; min-width: 0; height: 100%; padding: 0; border: 0;
+  background: transparent; color: var(--text); font: 400 14px/1 var(--font); }
+.pw-field .pw-input:hover, .pw-field .pw-input:focus { border: 0; box-shadow: none; outline: none; }
+.pw-toggle { flex: 0 0 auto; display: flex; align-items: center; justify-content: center;
+  width: 20px; height: 20px; padding: 0; border: 0; background: none; cursor: pointer;
+  color: var(--text-muted); transition: color var(--dur) var(--ease); }
+.pw-toggle:hover { color: var(--text-secondary); }
+.pw-toggle:focus-visible { outline: none; color: var(--text); }
+
+/* OBS setup screenshot */
+.obs-shot { display: block; width: 100%; max-width: 348px; height: auto; margin: 0 auto; }
 
 .linkbtn { background: none; border: none; color: var(--text-secondary); cursor: pointer;
            font: 500 13px/1.4 var(--font); padding: var(--s-2); }
@@ -336,7 +383,8 @@ function backFromWebsocket() { editMode.value ? router.push('/app') : (step.valu
   color: var(--text); font: 400 14px/1 var(--font); cursor: pointer; }
 .select.open .select-trigger { border-color: var(--primary); box-shadow: var(--focus); }
 .select-val { display: flex; align-items: center; gap: var(--s-2); }
-.select .caret { color: var(--text-muted); }
+.select .caret { display: block; color: var(--text-muted); transition: transform var(--dur) var(--ease); }
+.select.open .caret { transform: rotate(180deg); }
 .aa { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: var(--r-sm);
   background: var(--surface-raised); color: var(--text-muted); font-size: 11px; font-weight: 600; }
 .select-panel { position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 20;

@@ -44,9 +44,16 @@ app.whenReady().then(async () => {
 
   cfg = config.load()
   refreshToken = config.loadToken()
+  obsPassword = config.loadObsPassword() || ''
   goal = computeGoal(0, cfg.startGoal, cfg.increment)
 
   windows.createWindow({ preloadPath: path.join(__dirname, '../preload/index.js') })
+
+  // Put a loading screen on top immediately; present() dismisses it once the
+  // real window has painted. Guarded so a splash failure never aborts startup.
+  try {
+    windows.createSplash()
+  } catch {}
 
   // Show the UI first, before tray/updater, so nothing downstream can ever
   // leave the app running with no visible window.
@@ -185,6 +192,7 @@ ipcMain.handle('get-state', () => ({
   synced,
   count,
   goal,
+  obsPassword,
 }))
 
 ipcMain.handle('save-settings', (_e, patch) => {
@@ -265,6 +273,9 @@ ipcMain.handle('obs-connect', async (_e, { host, port, password }) => {
     cfg.obsHost = host
     cfg.obsPort = port
     config.save(cfg)
+    // Remember the password (encrypted) so re-editing prefills it and the app
+    // can reconnect after a restart. An empty password clears any stored one.
+    config.saveObsPassword(obsPassword)
     return { ok: true }
   } catch (e) {
     return { ok: false, error: e.message }
@@ -343,6 +354,28 @@ ipcMain.handle('sync-sub-count', async (_e, on) => {
 ipcMain.handle('fire-test-sub', () => {
   count = Math.max(0, count + 1)
   pushOutput()
+})
+
+// Wipe everything back to a first-run state: settings, Twitch login and the
+// saved OBS password. The renderer navigates to onboarding afterward; on next
+// launch the cleared onboarded flag sends the user through setup again.
+ipcMain.handle('reset-all-data', () => {
+  if (tracker) stopTracking()
+  try {
+    obs.close()
+  } catch {}
+  config.clearToken()
+  config.clearObsPassword()
+  cfg = { ...config.DEFAULTS }
+  config.save(cfg)
+  refreshToken = null
+  obsPassword = ''
+  obs = new OBSClient()
+  count = 0
+  synced = false
+  goal = computeGoal(0, cfg.startGoal, cfg.increment)
+  updateTray({ tracking: false, count, goal })
+  return true
 })
 
 // --- windowing ---
