@@ -143,12 +143,13 @@ function backFromWebsocket() { editMode.value ? router.push('/app') : (step.valu
 
     <!-- ============ WELCOME ============ -->
     <template v-if="step === 'welcome'">
-      <div class="ob-body">
-        <div class="col welcome-top">
+      <div class="ob-body welcome">
+        <div class="welcome-copy">
           <h1 class="t-title">Welcome to NextGoal</h1>
           <p class="t-body sub">A sub goal that raises itself. Every time you hit the target, the next one appears automatically.</p>
         </div>
-        <div class="grow center">
+        <div class="welcome-logo">
+          <!-- Placeholder — swap for the uploaded welcome-logo.svg (256×256). -->
           <svg class="carets" width="120" height="150" viewBox="0 0 120 150" fill="none" aria-hidden="true">
             <path d="M12 96 L60 52 L108 96" stroke="var(--accent-500)" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
             <path d="M12 132 L60 88 L108 132" stroke="var(--primary)" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
@@ -327,7 +328,10 @@ function backFromWebsocket() { editMode.value ? router.push('/app') : (step.valu
 .mute { color: var(--text-muted); text-align: center; }
 .err { color: var(--status-error); }
 .f { gap: var(--s-2); flex: 1; }
-.welcome-top { gap: var(--s-3); text-align: center; align-items: center; padding-top: var(--s-8); }
+.welcome { align-items: center; gap: var(--s-6); }
+.welcome-copy { display: flex; flex-direction: column; align-items: center; gap: var(--s-2); text-align: center; }
+.welcome-logo { flex: 1; width: 100%; min-height: 0; display: flex; align-items: center; justify-content: center; }
+.welcome-logo img { width: 100%; max-width: 256px; height: auto; }
 .carets { display: block; }
 
 .badge { width: 44px; height: 44px; border-radius: var(--r-full); display: flex; align-items: center; justify-content: center; font-size: 22px; color: #fff; }
