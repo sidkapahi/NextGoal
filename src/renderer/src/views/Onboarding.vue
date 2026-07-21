@@ -29,7 +29,8 @@ const sources = ref([])
 const selected = ref('')
 const customName = ref('')
 const selectOpen = ref(false)
-const sourceDone = ref(false)
+const sourceTestState = ref('idle') // idle | testing | success | error (transient label)
+const sourcePassed = ref(false) // a valid source test has succeeded — gates Connect
 
 const userCode = ref('')
 const verifyUri = ref('https://www.twitch.tv/activate')
@@ -55,7 +56,7 @@ onMounted(async () => {
     selected.value = s.cfg.obsSource || ''
   }
 })
-onUnmounted(() => { clearResultTimer(); cleanups.forEach((fn) => fn && fn()) })
+onUnmounted(() => { clearResultTimer(); clearSourceTimer(); cleanups.forEach((fn) => fn && fn()) })
 
 // ---- Step 1: test the connection, then continue ----
 // Test actually connects to OBS. Connect stays disabled until a test passes,
@@ -114,7 +115,16 @@ function connectObs() {
   else step.value = 'source'
 }
 
-// ---- Step 3: source ----
+// ---- Step 2: source ----
+// Same shape as the Setup OBS step: Test does the real check (writes sample
+// text to the source so it visibly updates in OBS), Connect stays disabled
+// until that passes, then commits the selection and moves on. The Success/Error
+// label is transient and reverts to “Test”; sourcePassed is what gates Connect.
+let sourceTimer = null
+function clearSourceTimer() {
+  if (sourceTimer) { clearTimeout(sourceTimer); sourceTimer = null }
+}
+
 async function loadSources() {
   const res = await window.ng.obsListSources()
   sources.value = res.sources || []
@@ -123,6 +133,7 @@ async function loadSources() {
 function pickSource(name) {
   selected.value = name
   selectOpen.value = false
+  resetSourceTest()
 }
 async function addCustom() {
   const name = customName.value.trim()
@@ -133,24 +144,55 @@ async function addCustom() {
     selected.value = res.name
     customName.value = ''
     selectOpen.value = false
+    resetSourceTest()
   } else {
     obsError.value = res.error || 'Could not create the source.'
   }
 }
+
 async function testSource() {
-  if (!selected.value) return
-  await window.ng.obsTestSource(selected.value)
-}
-async function connectSource() {
-  if (!selected.value) { obsError.value = 'Pick or create a source.'; return }
+  if (sourceTestState.value === 'testing') return
+  clearSourceTimer()
+  sourcePassed.value = false
   obsError.value = ''
+  if (!selected.value) {
+    obsError.value = 'Pick or create a source.'
+    sourceTestState.value = 'error'
+  } else {
+    sourceTestState.value = 'testing'
+    const res = await window.ng.obsTestSource(selected.value)
+    if (res && res.ok) {
+      sourcePassed.value = true
+      sourceTestState.value = 'success'
+    } else {
+      obsError.value = (res && res.error) || 'Could not update the source.'
+      sourceTestState.value = 'error'
+    }
+  }
+  sourceTimer = setTimeout(() => {
+    if (sourceTestState.value === 'success' || sourceTestState.value === 'error') {
+      sourceTestState.value = 'idle'
+      obsError.value = ''
+    }
+    sourceTimer = null
+  }, RESULT_MS)
+}
+
+// Changing the selected source invalidates a prior test result.
+function resetSourceTest() {
+  clearSourceTimer()
+  if (sourceTestState.value === 'idle' && !sourcePassed.value) return
+  sourceTestState.value = 'idle'
+  sourcePassed.value = false
+  obsError.value = ''
+}
+
+async function connectSource() {
+  if (!sourcePassed.value) return
   const res = await window.ng.obsSelectSource(selected.value)
   if (!res.ok) { obsError.value = res.error || 'Could not set the source.'; return }
-  sourceDone.value = true
-  setTimeout(() => {
-    if (editMode.value) router.push('/app')
-    else step.value = 'twitch'
-  }, 700)
+  if (editMode.value) router.push('/app')
+  else step.value = 'twitch'
 }
 
 // ---- Step 4: twitch ----
@@ -296,9 +338,27 @@ function backFromWebsocket() { editMode.value ? router.push('/app') : (step.valu
       <footer class="ob-foot row">
         <button class="btn btn--secondary" @click="step = 'websocket'">Back</button>
         <div class="grow"></div>
-        <button class="btn btn--ghost" @click="testSource">Test</button>
-        <span v-if="sourceDone" class="pill ok-pill"><span class="dot" style="background:var(--status-ok)"></span><span class="t-caption">Success</span></span>
-        <button v-else class="btn btn--primary" @click="connectSource">Connect</button>
+        <!-- Same Test → Success/Error → Connect flow as the Setup OBS step. -->
+        <button v-if="sourceTestState === 'success'" type="button" class="test-result ok" @click="testSource"
+                title="Test again">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <circle cx="12" cy="12" r="10" fill="currentColor" />
+            <path d="m8 12 2.5 2.5L16 9" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+          Success
+        </button>
+        <button v-else-if="sourceTestState === 'error'" type="button" class="test-result err" @click="testSource"
+                title="Test again">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <circle cx="12" cy="12" r="10" fill="currentColor" />
+            <path d="m9 9 6 6M15 9l-6 6" stroke="#fff" stroke-width="2" stroke-linecap="round" />
+          </svg>
+          Error
+        </button>
+        <button v-else type="button" class="btn btn--ghost" :disabled="sourceTestState === 'testing'" @click="testSource">
+          {{ sourceTestState === 'testing' ? 'Testing…' : 'Test' }}
+        </button>
+        <button class="btn btn--primary" :disabled="!sourcePassed" @click="connectSource">Connect</button>
       </footer>
     </template>
 
@@ -409,7 +469,6 @@ function backFromWebsocket() { editMode.value ? router.push('/app') : (step.valu
 .preview { display: flex; align-items: baseline; gap: 2px; }
 .preview .sep { color: var(--text-disabled); }
 .preview .live { color: var(--status-live); }
-.ok-pill { background: transparent; }
 
 /* custom source dropdown */
 .select { position: relative; width: 100%; }
