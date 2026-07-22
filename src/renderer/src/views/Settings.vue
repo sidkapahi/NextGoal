@@ -284,13 +284,23 @@ async function logout() {
         <div class="grow"></div>
         <button type="button" class="test-result" :class="testState"
                 :disabled="testState === 'testing'" @click="testObs">
-          <svg v-if="testState === 'success'" width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <circle cx="12" cy="12" r="10" fill="currentColor" />
-            <path d="m8 12 2.5 2.5L16 9" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+          <!-- The glyph is knocked out of the disc (transparent), so the page shows
+               through it — not a solid white mark. -->
+          <svg v-if="testState === 'success'" width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
+            <mask id="tr-ok">
+              <rect width="24" height="24" fill="#000" />
+              <circle cx="12" cy="12" r="10" fill="#fff" />
+              <path d="m8 12 2.5 2.5L16 9" fill="none" stroke="#000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+            </mask>
+            <rect width="24" height="24" fill="currentColor" mask="url(#tr-ok)" />
           </svg>
-          <svg v-else-if="testState === 'error'" width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <circle cx="12" cy="12" r="10" fill="currentColor" />
-            <path d="m9 9 6 6M15 9l-6 6" stroke="#fff" stroke-width="2" stroke-linecap="round" />
+          <svg v-else-if="testState === 'error'" width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
+            <mask id="tr-x">
+              <rect width="24" height="24" fill="#000" />
+              <circle cx="12" cy="12" r="10" fill="#fff" />
+              <path d="m9 9 6 6M15 9l-6 6" stroke="#000" stroke-width="2" stroke-linecap="round" />
+            </mask>
+            <rect width="24" height="24" fill="currentColor" mask="url(#tr-x)" />
           </svg>
           <span>{{ testState === 'success' ? 'Success' : testState === 'error' ? 'Error'
             : testState === 'testing' ? 'Testing…' : 'Test' }}</span>

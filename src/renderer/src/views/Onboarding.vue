@@ -279,17 +279,25 @@ function backFromWebsocket() { editMode.value ? router.push('/app') : (step.valu
              Both are clickable to re-test, and revert to “Test” after a few seconds. -->
         <button v-if="testState === 'success'" type="button" class="test-result ok" @click="testConnection"
                 title="Test again">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <circle cx="12" cy="12" r="10" fill="currentColor" />
-            <path d="m8 12 2.5 2.5L16 9" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+          <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
+            <mask id="tr-ok">
+              <rect width="24" height="24" fill="#000" />
+              <circle cx="12" cy="12" r="10" fill="#fff" />
+              <path d="m8 12 2.5 2.5L16 9" fill="none" stroke="#000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+            </mask>
+            <rect width="24" height="24" fill="currentColor" mask="url(#tr-ok)" />
           </svg>
           Success
         </button>
         <button v-else-if="testState === 'error'" type="button" class="test-result err" @click="testConnection"
                 title="Test again">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <circle cx="12" cy="12" r="10" fill="currentColor" />
-            <path d="m9 9 6 6M15 9l-6 6" stroke="#fff" stroke-width="2" stroke-linecap="round" />
+          <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
+            <mask id="tr-x">
+              <rect width="24" height="24" fill="#000" />
+              <circle cx="12" cy="12" r="10" fill="#fff" />
+              <path d="m9 9 6 6M15 9l-6 6" stroke="#000" stroke-width="2" stroke-linecap="round" />
+            </mask>
+            <rect width="24" height="24" fill="currentColor" mask="url(#tr-x)" />
           </svg>
           Error
         </button>
@@ -338,17 +346,25 @@ function backFromWebsocket() { editMode.value ? router.push('/app') : (step.valu
         <!-- Same Test → Success/Error → Connect flow as the Setup OBS step. -->
         <button v-if="sourceTestState === 'success'" type="button" class="test-result ok" @click="testSource"
                 title="Test again">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <circle cx="12" cy="12" r="10" fill="currentColor" />
-            <path d="m8 12 2.5 2.5L16 9" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+          <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
+            <mask id="tr-ok">
+              <rect width="24" height="24" fill="#000" />
+              <circle cx="12" cy="12" r="10" fill="#fff" />
+              <path d="m8 12 2.5 2.5L16 9" fill="none" stroke="#000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+            </mask>
+            <rect width="24" height="24" fill="currentColor" mask="url(#tr-ok)" />
           </svg>
           Success
         </button>
         <button v-else-if="sourceTestState === 'error'" type="button" class="test-result err" @click="testSource"
                 title="Test again">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <circle cx="12" cy="12" r="10" fill="currentColor" />
-            <path d="m9 9 6 6M15 9l-6 6" stroke="#fff" stroke-width="2" stroke-linecap="round" />
+          <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
+            <mask id="tr-x">
+              <rect width="24" height="24" fill="#000" />
+              <circle cx="12" cy="12" r="10" fill="#fff" />
+              <path d="m9 9 6 6M15 9l-6 6" stroke="#000" stroke-width="2" stroke-linecap="round" />
+            </mask>
+            <rect width="24" height="24" fill="currentColor" mask="url(#tr-x)" />
           </svg>
           Error
         </button>
