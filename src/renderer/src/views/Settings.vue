@@ -179,58 +179,65 @@ async function logout() {
     <!-- ============ GENERAL ============ -->
     <template v-if="tab === 'general'">
       <div class="body">
-        <h2 class="t-h">Default Goal Settings</h2>
-        <div class="row" style="gap:var(--s-3); align-items:flex-start">
-          <label class="col field">
-            <span class="t-label muted">Starting goal</span>
-            <input type="number" min="1" v-model="defStartGoal" />
-          </label>
-          <label class="col field">
-            <span class="t-label muted">Increase by</span>
-            <input type="number" min="1" v-model="defIncrement" />
-          </label>
+        <div class="section">
+          <h2 class="t-h">Default Goal Settings</h2>
+          <div class="row" style="gap:var(--s-3); align-items:flex-start">
+            <label class="col field">
+              <span class="t-label">Starting goal</span>
+              <input type="number" min="1" v-model="defStartGoal" />
+            </label>
+            <label class="col field">
+              <span class="t-label">Increase by</span>
+              <input type="number" min="1" v-model="defIncrement" />
+            </label>
+          </div>
         </div>
 
-        <h2 class="t-h" style="margin-top:var(--s-4)">Danger Zone</h2>
-        <p class="t-body sub">Reset restores your default goal settings. Deleting removes all your data
-          permanently — this can't be undone.</p>
-        <div class="row" style="gap:var(--s-3)">
-          <button class="btn btn--secondary btn--lg danger-btn" @click="resetToDefaults">Reset To Defaults</button>
-          <template v-if="!confirmDelete">
-            <button class="btn btn--danger btn--lg danger-btn" @click="confirmDelete = true">Delete all my data</button>
-          </template>
-          <template v-else>
-            <button class="btn btn--secondary btn--lg danger-btn" @click="confirmDelete = false">Cancel</button>
-            <button class="btn btn--danger btn--lg danger-btn" @click="deleteData">Confirm delete</button>
-          </template>
+        <div class="section">
+          <div class="col" style="gap:var(--s-2)">
+            <h2 class="t-h">Danger Zone</h2>
+            <p class="t-body sub">Reset restores your default goal settings. Deleting removes all your data
+              permanently — this can't be undone.</p>
+          </div>
+          <div class="row" style="gap:var(--s-3)">
+            <button class="btn btn--secondary btn--lg danger-btn" @click="resetToDefaults">Reset To Defaults</button>
+            <template v-if="!confirmDelete">
+              <button class="btn btn--danger btn--lg danger-btn" @click="confirmDelete = true">Delete all my data</button>
+            </template>
+            <template v-else>
+              <button class="btn btn--secondary btn--lg danger-btn" @click="confirmDelete = false">Cancel</button>
+              <button class="btn btn--danger btn--lg danger-btn" @click="deleteData">Confirm delete</button>
+            </template>
+          </div>
         </div>
       </div>
       <footer class="foot">
         <button class="btn btn--ghost" @click="close">Cancel</button>
         <div class="grow"></div>
-        <button class="btn btn--primary" @click="saveGeneral">Save</button>
+        <button class="btn btn--primary btn--lg" @click="saveGeneral">Save</button>
       </footer>
     </template>
 
     <!-- ============ OBS ============ -->
     <template v-else-if="tab === 'obs'">
       <div class="body">
-        <div class="col" style="gap:var(--s-1)">
+        <div class="col" style="gap:var(--s-2)">
           <h2 class="t-h">Edit OBS Configuration</h2>
           <p class="t-body sub">Update the WebSocket connection details or change the source being tracked.</p>
         </div>
+        <div class="section">
         <div class="row" style="gap:var(--s-3); align-items:flex-start">
           <label class="col field">
-            <span class="t-label muted">Host Address</span>
+            <span class="t-label">Host Address</span>
             <input v-model="obsHost" />
           </label>
           <label class="col field">
-            <span class="t-label muted">Port</span>
+            <span class="t-label">Port</span>
             <input v-model="obsPort" />
           </label>
         </div>
         <label class="col field">
-          <span class="t-label muted">Password (if you set one)</span>
+          <span class="t-label">Password (if you set one)</span>
           <div class="pw-field">
             <input class="pw-input" :type="showPw ? 'text' : 'password'" v-model="obsPassword" />
             <button type="button" class="pw-toggle" @click="showPw = !showPw"
@@ -251,7 +258,7 @@ async function logout() {
         </label>
 
         <label class="col field">
-          <span class="t-label muted">Source</span>
+          <span class="t-label">Source</span>
           <div class="src-box">
             <div class="src-row">
               <span class="src-val"><span class="aa">Aa</span>{{ obsSource || 'No source' }}</span>
@@ -270,6 +277,7 @@ async function logout() {
             </div>
           </div>
         </label>
+        </div>
       </div>
       <footer class="foot">
         <button class="btn btn--ghost" @click="close">Cancel</button>
@@ -281,7 +289,7 @@ async function logout() {
           <template v-else-if="testState === 'testing'">Testing…</template>
           <template v-else>Test</template>
         </button>
-        <button class="btn btn--primary" @click="saveObs">Save</button>
+        <button class="btn btn--primary btn--lg" @click="saveObs">Save</button>
       </footer>
     </template>
 
@@ -289,7 +297,7 @@ async function logout() {
     <template v-else>
       <div class="body">
         <template v-if="connected">
-          <div class="col" style="gap:var(--s-1)">
+          <div class="col" style="gap:var(--s-2)">
             <h2 class="t-h">Manage your Twitch connection</h2>
             <p class="t-body sub">Switch accounts or sign out. You'll need to log in again to keep tracking subs.</p>
           </div>
@@ -299,7 +307,7 @@ async function logout() {
           </button>
         </template>
         <template v-else>
-          <div class="col" style="gap:var(--s-1)">
+          <div class="col" style="gap:var(--s-2)">
             <h2 class="t-h">Connect your Twitch account</h2>
             <p class="t-body sub">So NextGoal can count subs in real time. It only reads your sub count — nothing else.</p>
           </div>
@@ -330,23 +338,25 @@ async function logout() {
   border: 0; background: transparent; border-radius: var(--r-md); cursor: pointer; color: var(--text-muted);
   transition: background var(--dur) var(--ease), color var(--dur) var(--ease); }
 .icon-btn:hover { background: var(--hover); color: var(--text); }
-.x { width: 20px; height: 20px; }
+.x { width: 28px; height: 28px; }
 
-.tabs { display: flex; align-items: center; gap: var(--s-1); padding: var(--s-5) 40px 0; }
-.tab { display: inline-flex; align-items: center; gap: var(--s-2); height: var(--ctrl); padding: 0 var(--s-3);
+.tabs { display: flex; align-items: center; gap: var(--s-1); padding: var(--s-6) 40px 0; }
+.tab { display: inline-flex; align-items: center; gap: var(--s-2); height: var(--ctrl); padding: 0 14px;
   border: 1px solid transparent; border-radius: var(--r-md); background: transparent;
-  color: var(--text-muted); font: 500 13px/1 var(--font); cursor: pointer;
+  color: var(--text-secondary); font: 500 13px/1.4 var(--font); cursor: pointer;
   transition: background var(--dur) var(--ease), color var(--dur) var(--ease); }
 .tab:hover { color: var(--text); }
 .tab.active { background: var(--surface-raised); border-color: var(--border); color: var(--text); }
 .tab-alert { width: 15px; height: 15px; color: var(--status-error); }
 
-.body { flex: 1; display: flex; flex-direction: column; padding: var(--s-6) 40px; gap: var(--s-3); min-height: 0; overflow-y: auto; }
-.t-h { font-size: 20px; line-height: 1.3; font-weight: 600; letter-spacing: -.01em; color: var(--text); }
-.field { gap: var(--s-2); flex: 1; }
+.body { flex: 1; display: flex; flex-direction: column; padding: var(--s-6) 40px; gap: var(--s-6); min-height: 0; overflow-y: auto; }
+.section { display: flex; flex-direction: column; gap: var(--s-4); width: 100%; }
+.t-h { font-size: 20px; line-height: 1.3; font-weight: 500; letter-spacing: -0.2px; color: var(--text); }
+.field { gap: 6px; flex: 1; }
+.field .t-label { color: var(--text-secondary); }
 .danger-btn { flex: 1; }
 
-.foot { display: flex; align-items: center; gap: var(--s-3); padding: var(--s-5) 40px var(--s-8); }
+.foot { display: flex; align-items: center; gap: var(--s-4); padding: var(--s-5) 40px var(--s-8); }
 
 /* password field (mirrors onboarding) */
 .pw-field { display: flex; align-items: center; gap: var(--s-2); width: 100%;

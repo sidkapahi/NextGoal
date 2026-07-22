@@ -155,27 +155,29 @@ function openSettings() {
 .brand { display: flex; align-items: center; gap: var(--s-2); }
 
 .icon-btn { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px;
-  border: 0; background: transparent; border-radius: var(--r-md); cursor: pointer; color: var(--text-muted);
+  border: 0; background: transparent; border-radius: var(--r-md); cursor: pointer; color: var(--text-secondary);
   transition: background var(--dur) var(--ease), color var(--dur) var(--ease); }
 .icon-btn:hover { background: var(--hover); color: var(--text); }
-.gear { width: 20px; height: 20px; }
+.gear { width: 28px; height: 28px; }
 
-.body { flex: 1; display: flex; flex-direction: column; padding: var(--s-6) 40px; gap: var(--s-4); min-height: 0; }
+.body { flex: 1; display: flex; flex-direction: column; padding: var(--s-5) 40px; gap: var(--s-4); min-height: 0; }
 
 .goal-row { display: flex; gap: var(--s-3); align-items: flex-start; }
-.field { gap: var(--s-2); flex: 1; }
+.field { gap: 6px; flex: 1; }
+.field .t-label { color: var(--text-secondary); }
 .field input:disabled { opacity: .5; cursor: not-allowed; }
 
-/* Counter: 3 columns (count | slash | goal) × 3 rows (plus | number | minus). */
+/* Counter: 3 columns (count | slash | goal) × 3 rows (plus | number | minus).
+   Digits are tight (2px gap) with the +/- centered over each number. */
 .counter-area { flex: 1; display: flex; align-items: center; justify-content: center; min-height: 0; }
 .counter {
   display: grid;
   grid-template-columns: auto auto auto;
   grid-template-rows: auto auto auto;
   align-items: center; justify-items: center;
-  column-gap: var(--s-5);
+  column-gap: 2px; row-gap: var(--s-2);
 }
-.num { font-size: 104px; line-height: 1; font-weight: 700; letter-spacing: -.02em;
+.num { font-size: 144px; line-height: 1; font-weight: 700; letter-spacing: -1.1px;
   font-variant-numeric: tabular-nums; }
 .num.count { color: var(--text); }
 .num.slash { color: var(--text-muted); }
@@ -197,11 +199,12 @@ function openSettings() {
 .pm:focus-visible { outline: none; box-shadow: var(--focus); border-radius: var(--r-full); }
 
 .sync { display: flex; align-items: center; justify-content: center; gap: var(--s-2); cursor: pointer;
-  color: var(--text-muted); }
+  color: var(--text-secondary); }
 .sync.on { color: var(--status-ok); }
-.sync input { width: 18px; height: 18px; accent-color: var(--status-ok); cursor: pointer; }
+.sync input { width: 16px; height: 16px; accent-color: var(--status-ok); cursor: pointer; }
 
-.foot { display: flex; gap: var(--s-3); padding: var(--s-5) 40px var(--s-8); }
-.foot-start { flex: 1.9; }
-.foot-reset { flex: 1; }
+/* Start:Reset widths follow the Figma 260:108 ratio (gap 12) within the 380 row. */
+.foot { display: flex; gap: var(--s-3); padding: var(--s-4) 40px var(--s-8); }
+.foot-start { flex: 260 1 0; }
+.foot-reset { flex: 108 1 0; }
 </style>
