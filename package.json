@@ -1,6 +1,6 @@
 {
   "name": "nextgoal",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "description": "An auto-incrementing Twitch sub goal for OBS",
   "main": "./out/main/index.js",
   "author": "Sid Kapahi",
