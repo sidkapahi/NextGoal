@@ -36,7 +36,6 @@ const userCode = ref('')
 const verifyUri = ref('https://www.twitch.tv/activate')
 
 const cleanups = []
-let testTimer = null
 
 onMounted(async () => {
   if (!window.ng) return
@@ -59,9 +58,14 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
-  if (testTimer) clearTimeout(testTimer)
   cleanups.forEach((fn) => fn && fn())
 })
+
+// A prior test result no longer reflects the current fields once they change,
+// so editing (or reselecting a source) clears it and re-enables Save.
+function invalidateTest() {
+  if (testState.value !== 'testing') testState.value = 'idle'
+}
 
 function close() {
   router.push('/app')
@@ -103,6 +107,7 @@ function pickSource(name) {
   selected.value = name
   editingSource.value = false
   obsSource.value = name
+  invalidateTest()
 }
 async function addCustom() {
   const name = customName.value.trim()
@@ -114,13 +119,12 @@ async function addCustom() {
     obsSource.value = res.name
     customName.value = ''
     editingSource.value = false
+    invalidateTest()
   }
 }
 
-function clearTestTimer() { if (testTimer) { clearTimeout(testTimer); testTimer = null } }
 async function testObs() {
   if (testState.value === 'testing') return
-  clearTestTimer()
   testState.value = 'testing'
   const conn = await window.ng.obsConnect({
     host: obsHost.value, port: Number(obsPort.value), password: obsPassword.value,
@@ -131,14 +135,15 @@ async function testObs() {
     ok = !!(res && res.ok)
   }
   testState.value = ok ? 'success' : 'error'
-  testTimer = setTimeout(() => (testState.value = 'idle'), 5000)
 }
 
 async function saveObs() {
+  // Don't persist settings a test just proved don't work.
+  if (testState.value === 'error' || testState.value === 'testing') return
   const res = await window.ng.obsConnect({
     host: obsHost.value, port: Number(obsPort.value), password: obsPassword.value,
   })
-  if (!res.ok) return
+  if (!res.ok) { testState.value = 'error'; return }
   await window.ng.obsSelectSource(selected.value || obsSource.value)
   close()
 }
@@ -229,17 +234,17 @@ async function logout() {
         <div class="row" style="gap:var(--s-3); align-items:flex-start">
           <label class="col field">
             <span class="t-label">Host Address</span>
-            <input v-model="obsHost" />
+            <input v-model="obsHost" @input="invalidateTest" />
           </label>
           <label class="col field">
             <span class="t-label">Port</span>
-            <input v-model="obsPort" />
+            <input v-model="obsPort" @input="invalidateTest" />
           </label>
         </div>
         <label class="col field">
           <span class="t-label">Password (if you set one)</span>
           <div class="pw-field">
-            <input class="pw-input" :type="showPw ? 'text' : 'password'" v-model="obsPassword" />
+            <input class="pw-input" :type="showPw ? 'text' : 'password'" v-model="obsPassword" @input="invalidateTest" />
             <button type="button" class="pw-toggle" @click="showPw = !showPw"
                     :aria-label="showPw ? 'Hide password' : 'Show password'">
               <svg v-if="showPw" width="18" height="18" viewBox="0 0 24 24" fill="none"
@@ -305,7 +310,7 @@ async function logout() {
           <span>{{ testState === 'success' ? 'Success' : testState === 'error' ? 'Error'
             : testState === 'testing' ? 'Testing…' : 'Test' }}</span>
         </button>
-        <button class="btn btn--primary btn--lg" @click="saveObs">Save</button>
+        <button class="btn btn--primary btn--lg" :disabled="testState === 'error' || testState === 'testing'" @click="saveObs">Save</button>
       </footer>
     </template>
 
