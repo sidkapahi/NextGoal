@@ -1,5 +1,15 @@
 /* NextGoal design tokens — dark first */
 
+/* Satoshi, self-hosted (variable, 300–900). Bundled so it always renders —
+   offline, no flash-of-fallback, no external request. */
+@font-face {
+  font-family: 'Satoshi';
+  src: url('../assets/fonts/Satoshi-Variable.woff2') format('woff2-variations');
+  font-weight: 300 900;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   /* neutrals */
   --n-0:#0B0C0F; --n-50:#111318; --n-100:#16181F; --n-150:#1D2028;
