@@ -284,10 +284,16 @@ async function logout() {
         <div class="grow"></div>
         <button type="button" class="test-result" :class="testState"
                 :disabled="testState === 'testing'" @click="testObs">
-          <template v-if="testState === 'success'">Success</template>
-          <template v-else-if="testState === 'error'">Error</template>
-          <template v-else-if="testState === 'testing'">Testing…</template>
-          <template v-else>Test</template>
+          <svg v-if="testState === 'success'" width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <circle cx="12" cy="12" r="10" fill="currentColor" />
+            <path d="m8 12 2.5 2.5L16 9" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+          <svg v-else-if="testState === 'error'" width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <circle cx="12" cy="12" r="10" fill="currentColor" />
+            <path d="m9 9 6 6M15 9l-6 6" stroke="#fff" stroke-width="2" stroke-linecap="round" />
+          </svg>
+          <span>{{ testState === 'success' ? 'Success' : testState === 'error' ? 'Error'
+            : testState === 'testing' ? 'Testing…' : 'Test' }}</span>
         </button>
         <button class="btn btn--primary btn--lg" @click="saveObs">Save</button>
       </footer>
@@ -390,8 +396,11 @@ async function logout() {
   background: var(--primary); color: var(--on-primary); border: 0; cursor: pointer; font-size: 18px; line-height: 1; }
 .src-add:hover { background: var(--primary-hover); }
 
-/* test label in footer */
-.test-result { border: 0; background: none; cursor: pointer; font: 500 13px/1.4 var(--font); color: var(--text-secondary); padding: 0 var(--s-2); }
+/* test label in footer — icon + label (matches the onboarding test states) */
+.test-result { display: inline-flex; align-items: center; gap: var(--s-1);
+  border: 0; background: none; cursor: pointer; font: 500 13px/1.4 var(--font);
+  color: var(--text-secondary); padding: 0 var(--s-2); }
+.test-result svg { flex: 0 0 auto; }
 .test-result.success { color: var(--status-ok); }
 .test-result.error { color: var(--status-error); }
 .test-result:disabled { cursor: default; }
