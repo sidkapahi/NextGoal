@@ -12,6 +12,8 @@ contextBridge.exposeInMainWorld('ng', {
   // state
   getState: () => ipcRenderer.invoke('get-state'),
   saveSettings: (patch) => ipcRenderer.invoke('save-settings', patch),
+  setSessionGoal: (patch) => ipcRenderer.invoke('set-session-goal', patch),
+  resetDefaults: () => ipcRenderer.invoke('reset-defaults'),
 
   // twitch
   loginStart: () => ipcRenderer.invoke('twitch-login-start'),
@@ -32,6 +34,7 @@ contextBridge.exposeInMainWorld('ng', {
   stopTracking: () => ipcRenderer.invoke('stop-tracking'),
   resetCount: () => ipcRenderer.invoke('reset-count'),
   adjustCount: (n) => ipcRenderer.invoke('adjust-count', n),
+  adjustGoal: (n) => ipcRenderer.invoke('adjust-goal', n),
   fireTestSub: () => ipcRenderer.invoke('fire-test-sub'),
   syncSubCount: (on) => ipcRenderer.invoke('sync-sub-count', on),
 

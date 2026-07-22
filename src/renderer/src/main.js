@@ -3,6 +3,7 @@ import { createRouter, createWebHashHistory } from 'vue-router'
 import App from './App.vue'
 import Onboarding from './views/Onboarding.vue'
 import MainApp from './views/MainApp.vue'
+import Settings from './views/Settings.vue'
 import './styles/tokens.css'
 
 const router = createRouter({
@@ -10,6 +11,7 @@ const router = createRouter({
   routes: [
     { path: '/onboarding', component: Onboarding },
     { path: '/app', component: MainApp },
+    { path: '/settings', component: Settings },
     { path: '/:pathMatch(.*)*', redirect: '/app' },
   ],
 })

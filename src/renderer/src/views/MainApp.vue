@@ -1,23 +1,19 @@
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
+import gearIcon from '../assets/icon-settings.svg'
+import plusIcon from '../assets/icon-plus.svg'
+import minusIcon from '../assets/icon-minus.svg'
 
 const router = useRouter()
 
 const count = ref(0)
 const goal = ref(5)
 const tracking = ref(false)
-const status = ref('')
-const connected = ref(false)
-const broadcasterName = ref('')
-const broadcasterAvatar = ref('')
 const synced = ref(false)
 
 const startGoal = ref(5)
 const increment = ref(5)
-const obsHost = ref('localhost')
-const obsPort = ref(4455)
-const obsSource = ref('')
 
 const cleanups = []
 
@@ -27,38 +23,39 @@ onMounted(async () => {
   count.value = s.count
   goal.value = s.goal
   tracking.value = s.tracking
-  connected.value = s.connected
-  broadcasterName.value = s.broadcasterName
-  broadcasterAvatar.value = s.broadcasterAvatar
   synced.value = s.synced
-  startGoal.value = s.cfg.startGoal
-  increment.value = s.cfg.increment
-  obsHost.value = s.cfg.obsHost
-  obsPort.value = s.cfg.obsPort
-  obsSource.value = s.cfg.obsSource
+  startGoal.value = s.startGoal
+  increment.value = s.increment
 
   cleanups.push(window.ng.onCountChanged(({ count: c, goal: g }) => {
     count.value = c; goal.value = g
   }))
   cleanups.push(window.ng.onTrackingChanged((v) => (tracking.value = v)))
-  cleanups.push(window.ng.onStatus((m) => (status.value = m)))
-  cleanups.push(window.ng.onAuthExpired((m) => { status.value = m; tracking.value = false }))
+  cleanups.push(window.ng.onAuthExpired(() => { tracking.value = false }))
 })
 
 onUnmounted(() => cleanups.forEach((fn) => fn && fn()))
+
+// Starting goal is locked while live (session base is fixed) and while synced
+// (the base comes from the sub total, not the starting goal).
+const startLocked = computed(() => tracking.value || synced.value)
 
 function toggle() {
   tracking.value ? window.ng.stopTracking() : window.ng.startTracking()
 }
 function reset() {
+  if (tracking.value) return
   window.ng.resetCount()
 }
 function saveGoal() {
-  window.ng.saveSettings({
+  window.ng.setSessionGoal({
     startGoal: Math.max(1, Number(startGoal.value) || 1),
     increment: Math.max(1, Number(increment.value) || 1),
   })
 }
+function bumpCount(n) { window.ng.adjustCount(n) }
+function bumpGoal(n) { window.ng.adjustGoal(n) }
+
 async function onSync(e) {
   const on = e.target.checked
   const res = await window.ng.syncSubCount(on)
@@ -69,18 +66,11 @@ async function onSync(e) {
   } else {
     synced.value = false
     e.target.checked = false
-    if (res && res.error) status.value = res.error
   }
 }
-function editSetup() {
-  router.push({ path: '/onboarding', query: { mode: 'edit' } })
-}
 
-const confirmReset = ref(false)
-async function resetData() {
-  await window.ng.resetAllData()
-  confirmReset.value = false
-  router.push('/onboarding')
+function openSettings() {
+  router.push('/settings')
 }
 </script>
 
@@ -90,76 +80,69 @@ async function resetData() {
       <div class="brand">
         <span class="t-title">NextGoal</span>
         <span class="pill">
-          <span class="dot" :style="{ background: tracking ? 'var(--status-live)' : 'var(--status-ok)' }"></span>
-          <span class="t-caption">{{ tracking ? 'Active' : 'Ready' }}</span>
+          <span class="dot" :style="{ background: tracking ? 'var(--status-ok)' : 'var(--primary)' }"></span>
+          <span class="t-caption">{{ tracking ? 'Live' : 'Ready' }}</span>
         </span>
       </div>
-      <div class="user" v-if="connected">
-        <span class="t-label muted">{{ broadcasterName }}</span>
-        <img v-if="broadcasterAvatar" class="avatar" :src="broadcasterAvatar" alt="" />
-        <span v-else class="avatar avatar--empty"></span>
-      </div>
+      <button class="icon-btn" aria-label="Settings" @click="openSettings">
+        <span class="icon gear" :style="{ '--icon': `url(${gearIcon})` }"></span>
+      </button>
     </header>
 
     <div class="body">
-      <!-- SETUP -->
-      <section class="col" style="gap:var(--s-2)">
-        <span class="t-micro">Setup</span>
-        <div class="card setup-card">
-          <div class="col" style="gap:var(--s-1)">
-            <span class="src"><span class="aa">Aa</span><span class="t-label">{{ obsSource || 'No source' }}</span></span>
-            <span class="t-caption">{{ obsHost }}:{{ obsPort }} · Authenticated</span>
-          </div>
-          <button class="btn btn--ghost" @click="editSetup">Edit</button>
-        </div>
-        <div class="reset-row">
-          <template v-if="!confirmReset">
-            <button class="linklike danger" @click="confirmReset = true">Delete all my data</button>
-          </template>
-          <template v-else>
-            <span class="t-caption">Erases settings, Twitch login &amp; OBS password.</span>
-            <button class="btn btn--ghost" style="height:26px" @click="confirmReset = false">Cancel</button>
-            <button class="btn btn--danger" style="height:26px" @click="resetData">Delete</button>
-          </template>
-        </div>
-      </section>
+      <!-- GOAL INPUTS (live session values) -->
+      <div class="goal-row">
+        <label class="col field">
+          <span class="t-label muted">Starting goal</span>
+          <input type="number" min="1" v-model="startGoal" @change="saveGoal" :disabled="startLocked" />
+        </label>
+        <label class="col field">
+          <span class="t-label muted">Increase by</span>
+          <input type="number" min="1" v-model="increment" @change="saveGoal" />
+        </label>
+      </div>
 
-      <!-- GOAL -->
-      <section class="col" style="gap:var(--s-2)">
-        <span class="t-micro">Goal</span>
-        <div class="row" style="gap:var(--s-3); align-items:flex-start">
-          <label class="col field">
-            <span class="t-label muted">Starting goal</span>
-            <input type="number" min="1" v-model="startGoal" @change="saveGoal" :disabled="synced" />
-          </label>
-          <label class="col field">
-            <span class="t-label muted">Increase by</span>
-            <input type="number" min="1" v-model="increment" @change="saveGoal" />
-          </label>
-        </div>
-      </section>
-
-      <!-- COUNTER -->
+      <!-- COUNTER with +/- above & below each number -->
       <div class="counter-area">
-        <div class="counter">
-          <span>{{ count }}</span><span class="sep">/</span><span class="goal">{{ goal }}</span>
+        <div class="counter" :class="{ synced }">
+          <button class="pm pm--count" aria-label="Add to count" @click="bumpCount(1)">
+            <span class="icon" :style="{ '--icon': `url(${plusIcon})` }"></span>
+          </button>
+          <span class="spacer"></span>
+          <button class="pm pm--goal" aria-label="Raise goal" @click="bumpGoal(1)">
+            <span class="icon" :style="{ '--icon': `url(${plusIcon})` }"></span>
+          </button>
+
+          <span class="num count">{{ count }}</span>
+          <span class="num slash">/</span>
+          <span class="num goal">{{ goal }}</span>
+
+          <button class="pm pm--count" aria-label="Subtract from count" @click="bumpCount(-1)">
+            <span class="icon" :style="{ '--icon': `url(${minusIcon})` }"></span>
+          </button>
+          <span class="spacer"></span>
+          <button class="pm pm--goal" aria-label="Lower goal" @click="bumpGoal(-1)">
+            <span class="icon" :style="{ '--icon': `url(${minusIcon})` }"></span>
+          </button>
         </div>
       </div>
 
       <!-- SYNC -->
-      <label class="sync">
+      <label class="sync" :class="{ on: synced }">
         <input type="checkbox" :checked="synced" @change="onSync" />
-        <span class="t-label muted">{{ synced ? 'Synced current sub count' : 'Sync to current sub count' }}</span>
+        <span class="t-label">Sync total sub count</span>
       </label>
-
-      <div class="status t-caption">{{ status }}</div>
     </div>
 
     <footer class="foot">
-      <button class="btn btn--secondary btn--lg foot-btn" @click="reset">Reset</button>
-      <button class="btn btn--primary btn--lg foot-btn" @click="toggle">
+      <button
+        class="btn btn--lg foot-start"
+        :class="tracking ? 'btn--danger' : 'btn--primary'"
+        @click="toggle"
+      >
         {{ tracking ? 'Stop' : 'Start' }}
       </button>
+      <button class="btn btn--secondary btn--lg foot-reset" :disabled="tracking" @click="reset">Reset</button>
     </footer>
   </div>
 </template>
@@ -170,36 +153,55 @@ async function resetData() {
 
 .head { display: flex; align-items: center; justify-content: space-between; padding: 40px 40px 0; }
 .brand { display: flex; align-items: center; gap: var(--s-2); }
-.user { display: flex; align-items: center; gap: var(--s-2); }
-.avatar { width: 28px; height: 28px; border-radius: var(--r-full); object-fit: cover; }
-.avatar--empty { background: var(--surface-raised); }
 
-.body { flex: 1; display: flex; flex-direction: column; padding: var(--s-6) 40px; gap: var(--s-6); min-height: 0; }
+.icon-btn { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px;
+  border: 0; background: transparent; border-radius: var(--r-md); cursor: pointer; color: var(--text-muted);
+  transition: background var(--dur) var(--ease), color var(--dur) var(--ease); }
+.icon-btn:hover { background: var(--hover); color: var(--text); }
+.gear { width: 20px; height: 20px; }
 
-.setup-card { display: flex; align-items: center; justify-content: space-between; padding: var(--s-3) var(--s-4); }
-.src { display: flex; align-items: center; gap: var(--s-2); }
-.aa { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: var(--r-sm);
-  background: var(--surface-raised); color: var(--text-muted); font-size: 11px; font-weight: 600; }
+.body { flex: 1; display: flex; flex-direction: column; padding: var(--s-6) 40px; gap: var(--s-4); min-height: 0; }
 
+.goal-row { display: flex; gap: var(--s-3); align-items: flex-start; }
 .field { gap: var(--s-2); flex: 1; }
+.field input:disabled { opacity: .5; cursor: not-allowed; }
 
-.reset-row { display: flex; align-items: center; justify-content: flex-end; gap: var(--s-2); min-height: 26px; }
-.linklike { background: none; border: 0; padding: 2px 4px; cursor: pointer;
-  font: 500 12px/1.4 var(--font); color: var(--text-muted); }
-.linklike.danger:hover { color: var(--status-error); }
-
+/* Counter: 3 columns (count | slash | goal) × 3 rows (plus | number | minus). */
 .counter-area { flex: 1; display: flex; align-items: center; justify-content: center; min-height: 0; }
-.counter { display: flex; align-items: baseline; gap: 2px;
-  font-size: 88px; line-height: 1; font-weight: 700; letter-spacing: -.02em; font-variant-numeric: tabular-nums;
-  color: var(--text); }
-.counter .sep { color: var(--text-muted); }
-.counter .goal { color: var(--status-live); }
+.counter {
+  display: grid;
+  grid-template-columns: auto auto auto;
+  grid-template-rows: auto auto auto;
+  align-items: center; justify-items: center;
+  column-gap: var(--s-5);
+}
+.num { font-size: 104px; line-height: 1; font-weight: 700; letter-spacing: -.02em;
+  font-variant-numeric: tabular-nums; }
+.num.count { color: var(--text); }
+.num.slash { color: var(--text-muted); }
+.num.goal { color: var(--primary); }
+.spacer { width: 1px; }
 
-.sync { display: flex; align-items: center; justify-content: center; gap: var(--s-2); cursor: pointer; }
-.sync input { width: 16px; height: 16px; accent-color: var(--primary); cursor: pointer; }
+/* Synced: the count number and its +/- turn green; the goal stays brand. */
+.counter.synced .num.count { color: var(--status-ok); }
+.counter.synced .pm--count { color: var(--status-ok); }
 
-.status { color: var(--text-muted); min-height: 16px; text-align: center; }
+.pm { display: inline-flex; align-items: center; justify-content: center;
+  width: 32px; height: 32px; padding: 0; border: 0; background: transparent; cursor: pointer;
+  transition: transform var(--dur) var(--ease), opacity var(--dur) var(--ease); }
+.pm .icon { width: 32px; height: 32px; }
+.pm--count { color: var(--text); }
+.pm--goal { color: var(--primary); }
+.pm:hover { opacity: .8; }
+.pm:active { transform: scale(.92); }
+.pm:focus-visible { outline: none; box-shadow: var(--focus); border-radius: var(--r-full); }
+
+.sync { display: flex; align-items: center; justify-content: center; gap: var(--s-2); cursor: pointer;
+  color: var(--text-muted); }
+.sync.on { color: var(--status-ok); }
+.sync input { width: 18px; height: 18px; accent-color: var(--status-ok); cursor: pointer; }
 
 .foot { display: flex; gap: var(--s-3); padding: var(--s-5) 40px var(--s-8); }
-.foot-btn { flex: 1; }
+.foot-start { flex: 1.9; }
+.foot-reset { flex: 1; }
 </style>

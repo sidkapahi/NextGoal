@@ -92,3 +92,9 @@ input[type=number]{font-variant-numeric:tabular-nums;}
 .row{display:flex;align-items:center;gap:var(--s-3);}
 .col{display:flex;flex-direction:column;}
 .grow{flex:1 1 auto;}
+
+/* Masked icon: paints the SVG shape in currentColor so a single monochrome
+   asset can render neutral / brand / green etc. Component sets --icon (the
+   mask url) and the width/height. */
+.icon{display:inline-block;flex:0 0 auto;background:currentColor;
+  -webkit-mask:var(--icon) center / contain no-repeat;mask:var(--icon) center / contain no-repeat;}
