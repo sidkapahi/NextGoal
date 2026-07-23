@@ -1,17 +1,32 @@
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import closeIcon from '../assets/icon-close.svg'
 import alertIcon from '../assets/icon-alert.svg'
 import twitchWhite from '../assets/twitch-white.svg'
+import youtubeLogo from '../assets/youtube.svg'
+import kickLogo from '../assets/kick.svg'
 
 const router = useRouter()
 
-const tab = ref('general') // general | obs | twitch
+const tab = ref('general') // general | obs | twitch | youtube | kick
 
-// --- shared / twitch ---
-const connected = ref(false)
-const broadcasterName = ref('')
+// --- platforms ---
+const PLATFORMS = [
+  { id: 'twitch', label: 'Twitch', logo: twitchWhite, cls: 'btn--twitch', unit: 'subs' },
+  { id: 'youtube', label: 'YouTube', logo: youtubeLogo, cls: 'btn--youtube', unit: 'members' },
+  { id: 'kick', label: 'Kick', logo: kickLogo, cls: 'btn--kick', unit: 'subs' },
+]
+// keyed by platform id → { connected, name, enabled }
+const platforms = ref({
+  twitch: { connected: false, name: '', enabled: true },
+  youtube: { connected: false, name: '', enabled: true },
+  kick: { connected: false, name: '', enabled: true },
+})
+// device-code prompt currently showing (twitch/youtube); kick uses the browser
+const activeCode = ref({ platform: '', userCode: '', verifyUri: '' })
+const meta = (id) => PLATFORMS.find((p) => p.id === id)
+const anyConnected = computed(() => Object.values(platforms.value).some((p) => p.connected))
 
 // --- general (persisted default goal settings) ---
 const defStartGoal = ref(5)
@@ -31,17 +46,14 @@ const customName = ref('')
 const obsBusy = ref(false)
 const testState = ref('idle') // idle | testing | success | error
 
-// --- twitch login ---
-const userCode = ref('')
-const verifyUri = ref('https://www.twitch.tv/activate')
-
 const cleanups = []
 
 onMounted(async () => {
   if (!window.ng) return
   const s = await window.ng.getState()
-  connected.value = s.connected
-  broadcasterName.value = s.broadcasterName
+  for (const p of s.platforms || []) {
+    platforms.value[p.id] = { connected: p.connected, name: p.name, enabled: p.enabled }
+  }
   defStartGoal.value = s.cfg.startGoal
   defIncrement.value = s.cfg.increment
   obsHost.value = s.cfg.obsHost
@@ -50,11 +62,14 @@ onMounted(async () => {
   obsSource.value = s.cfg.obsSource || ''
   selected.value = obsSource.value
 
-  cleanups.push(window.ng.onTwitchLoginOk(({ name }) => {
-    connected.value = true
-    broadcasterName.value = name
-    userCode.value = ''
-  }))
+  cleanups.push(
+    window.ng.onLoginOk(({ platform, name }) => {
+      platforms.value[platform].connected = true
+      platforms.value[platform].name = name
+      if (activeCode.value.platform === platform)
+        activeCode.value = { platform: '', userCode: '', verifyUri: '' }
+    })
+  )
 })
 
 onUnmounted(() => {
@@ -148,18 +163,23 @@ async function saveObs() {
   close()
 }
 
-// ---------- Twitch ----------
-async function loginTwitch() {
-  const res = await window.ng.loginStart()
+// ---------- Platforms ----------
+async function loginPlatform(id) {
+  const res = await window.ng.loginStart(id)
   if (res.error) return
-  userCode.value = res.userCode
-  verifyUri.value = res.verificationUri
+  if (res.browser) return // kick opens the browser itself
+  activeCode.value = { platform: id, userCode: res.userCode, verifyUri: res.verificationUri }
   window.ng.openExternal(res.verificationUri)
 }
-async function logout() {
-  await window.ng.logout()
-  connected.value = false
-  broadcasterName.value = ''
+async function logoutPlatform(id) {
+  await window.ng.logout(id)
+  platforms.value[id].connected = false
+  platforms.value[id].name = ''
+}
+function toggleEnabled(id) {
+  const on = !platforms.value[id].enabled
+  platforms.value[id].enabled = on
+  window.ng.setPlatformEnabled(id, on)
 }
 </script>
 
@@ -175,9 +195,10 @@ async function logout() {
     <nav class="tabs">
       <button class="tab" :class="{ active: tab === 'general' }" @click="tab = 'general'">General</button>
       <button class="tab" :class="{ active: tab === 'obs' }" @click="tab = 'obs'">OBS</button>
-      <button class="tab" :class="{ active: tab === 'twitch' }" @click="tab = 'twitch'">
-        Twitch
-        <span v-if="!connected" class="tab-alert icon" :style="{ '--icon': `url(${alertIcon})` }"></span>
+      <button v-for="p in PLATFORMS" :key="p.id" class="tab" :class="{ active: tab === p.id }" @click="tab = p.id">
+        {{ p.label }}
+        <span v-if="platforms[p.id].enabled && !platforms[p.id].connected" class="tab-alert icon"
+              :style="{ '--icon': `url(${alertIcon})` }"></span>
       </button>
     </nav>
 
@@ -314,34 +335,38 @@ async function logout() {
       </footer>
     </template>
 
-    <!-- ============ TWITCH ============ -->
-    <template v-else>
+    <!-- ============ PLATFORM (Twitch / YouTube / Kick) ============ -->
+    <template v-else-if="platforms[tab]">
       <div class="body">
-        <template v-if="connected">
+        <template v-if="platforms[tab].connected">
           <div class="col" style="gap:var(--s-2)">
-            <h2 class="t-h">Manage your Twitch connection</h2>
-            <p class="t-body sub">Switch accounts or sign out. You'll need to log in again to keep tracking subs.</p>
+            <h2 class="t-h">Manage your {{ meta(tab).label }} connection</h2>
+            <p class="t-body sub">Signed in{{ platforms[tab].name ? ' as ' + platforms[tab].name : '' }}. Sign out to stop counting {{ meta(tab).unit }} from {{ meta(tab).label }}.</p>
           </div>
-          <button class="btn btn--primary tw-btn" @click="logout">
-            <img :src="twitchWhite" width="14" height="16" alt="" />
+          <label class="toggle-row">
+            <input type="checkbox" :checked="platforms[tab].enabled" @change="toggleEnabled(tab)" />
+            <span class="t-label">Include {{ meta(tab).label }} {{ meta(tab).unit }} in the goal</span>
+          </label>
+          <button class="btn plat-btn" :class="meta(tab).cls" @click="logoutPlatform(tab)">
+            <img :src="meta(tab).logo" width="16" height="16" alt="" />
             Logout
           </button>
         </template>
         <template v-else>
           <div class="col" style="gap:var(--s-2)">
-            <h2 class="t-h">Connect your Twitch account</h2>
-            <p class="t-body sub">So NextGoal can count subs in real time. It only reads your sub count — nothing else.</p>
+            <h2 class="t-h">Connect your {{ meta(tab).label }} account</h2>
+            <p class="t-body sub">So NextGoal can count {{ meta(tab).unit }} from {{ meta(tab).label }}. It only reads your {{ meta(tab).unit }} count — nothing else.</p>
           </div>
-          <button class="btn btn--primary tw-btn" @click="loginTwitch">
-            <img :src="twitchWhite" width="14" height="16" alt="" />
-            {{ userCode ? 'Reopen twitch.tv/activate' : 'Login with Twitch' }}
+          <button class="btn plat-btn" :class="meta(tab).cls" @click="loginPlatform(tab)">
+            <img :src="meta(tab).logo" width="16" height="16" alt="" />
+            {{ activeCode.platform === tab ? 'Reopen activation page' : 'Login with ' + meta(tab).label }}
           </button>
-          <div class="card code-card" v-if="userCode">
+          <div class="card code-card" v-if="activeCode.userCode && activeCode.platform === tab">
             <span class="t-micro">Enter this code</span>
-            <span class="code tabular">{{ userCode }}</span>
-            <span class="t-caption muted">at twitch.tv/activate</span>
+            <span class="code tabular">{{ activeCode.userCode }}</span>
+            <span class="t-caption muted">to authorize {{ meta(tab).label }}</span>
           </div>
-          <p v-if="userCode" class="t-caption muted">Waiting for you to authorize…</p>
+          <p v-if="activeCode.userCode && activeCode.platform === tab" class="t-caption muted">Waiting for you to authorize…</p>
         </template>
       </div>
     </template>
@@ -420,8 +445,16 @@ async function logout() {
 .test-result.error { color: var(--status-error); }
 .test-result:disabled { cursor: default; }
 
-/* twitch */
-.tw-btn { align-self: flex-start; }
+/* platforms */
+.plat-btn { align-self: flex-start; }
+.btn--twitch { background: var(--primary); color: var(--on-primary); }
+.btn--twitch:hover { background: var(--primary-hover); }
+.btn--youtube { background: #fff; color: #0b0b0d; }
+.btn--youtube:hover { background: #eaeaea; }
+.btn--kick { background: #53fc18; color: #0b0b0d; }
+.btn--kick:hover { background: #46e310; }
+.toggle-row { display: flex; align-items: center; gap: var(--s-2); cursor: pointer; color: var(--text-secondary); }
+.toggle-row input { width: 16px; height: 16px; accent-color: var(--primary); cursor: pointer; }
 .code-card { padding: var(--s-6); align-items: center; display: flex; flex-direction: column; gap: var(--s-2); width: 100%; }
 .code { font-size: 32px; font-weight: 700; letter-spacing: 2px; }
 </style>

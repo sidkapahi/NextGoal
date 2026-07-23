@@ -3,8 +3,9 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import obsSetupImg from '../assets/obs-setup.png'
 import obsSourcesImg from '../assets/obs-sources.png'
-import twitchLogo from '../assets/twitch.svg'
 import twitchWhite from '../assets/twitch-white.svg'
+import youtubeLogo from '../assets/youtube.svg'
+import kickLogo from '../assets/kick.svg'
 import welcomeLogo from '../assets/welcome-logo.svg'
 
 const route = useRoute()
@@ -32,23 +33,41 @@ const selectOpen = ref(false)
 const sourceTestState = ref('idle') // idle | testing | success | error (transient label)
 const sourcePassed = ref(false) // a valid source test has succeeded — gates Connect
 
-const userCode = ref('')
-const verifyUri = ref('https://www.twitch.tv/activate')
+// Platform connect step (final step). Each platform can be linked; onboarding
+// completes once at least one is connected.
+const PLATFORMS = [
+  { id: 'twitch', label: 'Twitch', logo: twitchWhite, cls: 'btn--twitch' },
+  { id: 'youtube', label: 'YouTube', logo: youtubeLogo, cls: 'btn--youtube' },
+  { id: 'kick', label: 'Kick', logo: kickLogo, cls: 'btn--kick' },
+]
+const connected = ref({ twitch: false, youtube: false, kick: false })
+// The device-code prompt currently showing (twitch/youtube). Kick uses the
+// browser, so it never populates this.
+const activeCode = ref({ platform: '', userCode: '', verifyUri: '' })
 const loginError = ref('')
+
+const anyConnected = computed(() => Object.values(connected.value).some(Boolean))
 
 const cleanups = []
 
-const headerSteps = { websocket: 1, source: 2, twitch: 3 }
+const headerSteps = { websocket: 1, source: 2, platforms: 3 }
 const stepNum = computed(() => headerSteps[step.value] || 0)
 const showHeader = computed(() => step.value in headerSteps)
 
 onMounted(async () => {
   if (!window.ng) return
-  // Twitch is the last step — once it links, jump straight into the app.
-  cleanups.push(window.ng.onTwitchLoginOk(() => window.ng.completeOnboarding()))
-  cleanups.push(window.ng.onTwitchLoginFailed((m) => (loginError.value = m)))
+  cleanups.push(
+    window.ng.onLoginOk(({ platform }) => {
+      connected.value[platform] = true
+      if (activeCode.value.platform === platform)
+        activeCode.value = { platform: '', userCode: '', verifyUri: '' }
+      loginError.value = ''
+    })
+  )
+  cleanups.push(window.ng.onLoginFailed(({ message }) => (loginError.value = message)))
+  const s = await window.ng.getState()
+  for (const p of s.platforms || []) connected.value[p.id] = p.connected
   if (editMode.value) {
-    const s = await window.ng.getState()
     obsHost.value = s.cfg.obsHost
     obsPort.value = s.cfg.obsPort
     obsPassword.value = s.obsPassword || ''
@@ -191,24 +210,30 @@ async function connectSource() {
   const res = await window.ng.obsSelectSource(selected.value)
   if (!res.ok) { obsError.value = res.error || 'Could not set the source.'; return }
   if (editMode.value) router.push('/app')
-  else step.value = 'twitch'
+  else step.value = 'platforms'
 }
 
-// ---- Step 4: twitch ----
-async function loginTwitch() {
+// ---- Step 3: connect platforms ----
+async function loginPlatform(p) {
   loginError.value = ''
-  const res = await window.ng.loginStart()
+  const res = await window.ng.loginStart(p)
   if (res.error) { loginError.value = res.error; return }
-  userCode.value = res.userCode
-  verifyUri.value = res.verificationUri
+  // Kick opens the system browser itself — nothing to show in-app.
+  if (res.browser) return
+  // Twitch / YouTube: show the device code and open the activation page.
+  activeCode.value = { platform: p, userCode: res.userCode, verifyUri: res.verificationUri }
   window.ng.openExternal(res.verificationUri)
+}
+function finishOnboarding() {
+  if (!anyConnected.value) return
+  window.ng.completeOnboarding()
 }
 
 function backFromWebsocket() { editMode.value ? router.push('/app') : (step.value = 'welcome') }
 </script>
 
 <template>
-  <div class="ob" :class="{ 'ob--center': step === 'twitch' }">
+  <div class="ob">
     <!-- HEADER: dots + step label -->
     <header class="ob-head" v-if="showHeader">
       <div class="dots">
@@ -375,28 +400,34 @@ function backFromWebsocket() { editMode.value ? router.push('/app') : (step.valu
       </footer>
     </template>
 
-    <!-- ============ STEP 3 — TWITCH ============ -->
-    <template v-else-if="step === 'twitch'">
-      <div class="ob-body center grow twitch-step">
-        <!-- Top logo: the supplied twitch.svg (two-colour), used as-is. -->
-        <img class="tw-logo" :src="twitchLogo" width="44" height="51" alt="Twitch" />
-        <div class="twitch-copy">
-          <h1 class="t-title">Link your Twitch account</h1>
+    <!-- ============ STEP 3 — CONNECT PLATFORMS ============ -->
+    <template v-else-if="step === 'platforms'">
+      <div class="ob-body col platforms-step">
+        <div class="platforms-copy">
+          <h1 class="t-title">Connect your platforms</h1>
           <p class="t-body sub">So NextGoal can count subs in real time. It can only read your sub count — nothing else.</p>
         </div>
-        <button class="btn btn--primary" @click="loginTwitch">
-          <!-- Button icon: separate white mark (twitch-white.svg). -->
-          <img :src="twitchWhite" width="14" height="16" alt="" />
-          {{ userCode ? 'Reopen twitch.tv/activate' : 'Login with Twitch' }}
-        </button>
-        <div class="card code-card" v-if="userCode">
-          <span class="t-micro">Enter this code</span>
-          <span class="code tabular">{{ userCode }}</span>
-          <span class="t-caption mute">at twitch.tv/activate</span>
+        <div class="platform-btns">
+          <button v-for="p in PLATFORMS" :key="p.id" class="btn" :class="p.cls"
+                  @click="loginPlatform(p.id)">
+            <img :src="p.logo" width="16" height="16" alt="" />
+            <span>{{ connected[p.id] ? `Connected to ${p.label}` : `Login with ${p.label}` }}</span>
+            <span v-if="connected[p.id]" class="chk" aria-hidden="true">✓</span>
+          </button>
         </div>
-        <p v-if="userCode" class="t-caption mute">Waiting for you to authorize…</p>
+        <div class="card code-card" v-if="activeCode.userCode">
+          <span class="t-micro">Enter this code</span>
+          <span class="code tabular">{{ activeCode.userCode }}</span>
+          <span class="t-caption mute">to authorize {{ activeCode.platform }}</span>
+        </div>
+        <p v-if="activeCode.userCode" class="t-caption mute">Waiting for you to authorize…</p>
         <p v-if="loginError" class="t-caption err">{{ loginError }}</p>
       </div>
+      <footer class="ob-foot row">
+        <button class="btn btn--secondary" @click="step = 'source'">Back</button>
+        <div class="grow"></div>
+        <button class="btn btn--primary" :disabled="!anyConnected" @click="finishOnboarding">Next</button>
+      </footer>
     </template>
   </div>
 </template>
@@ -427,9 +458,20 @@ function backFromWebsocket() { editMode.value ? router.push('/app') : (step.valu
 .welcome-logo { flex: 1; width: 100%; min-height: 0; display: flex; align-items: center; justify-content: center; }
 .welcome-logo img { width: 100%; max-width: 256px; height: auto; }
 
-.twitch-step { gap: var(--s-6); }
-.tw-logo { display: block; }
-.twitch-copy { display: flex; flex-direction: column; align-items: center; gap: var(--s-2); }
+/* connect-platforms step */
+.platforms-step { gap: var(--s-6); align-items: center; justify-content: center; text-align: center; }
+.platforms-copy { display: flex; flex-direction: column; align-items: center; gap: var(--s-2); }
+.platform-btns { display: flex; flex-direction: column; gap: var(--s-3); width: 100%; max-width: 240px; }
+.platform-btns .btn { position: relative; width: 100%; justify-content: center; }
+.platform-btns .chk { position: absolute; right: var(--s-3); font-weight: 700; }
+
+/* brand-coloured login buttons (Figma: Twitch purple, YouTube white, Kick green) */
+.btn--twitch { background: var(--primary); color: var(--on-primary); }
+.btn--twitch:hover { background: var(--primary-hover); }
+.btn--youtube { background: #fff; color: #0b0b0d; }
+.btn--youtube:hover { background: #eaeaea; }
+.btn--kick { background: #53fc18; color: #0b0b0d; }
+.btn--kick:hover { background: #46e310; }
 
 /* test result label (Setup OBS footer) — Test → Success/Error */
 .test-result { display: inline-flex; align-items: center; gap: var(--s-1);

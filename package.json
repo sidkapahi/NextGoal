@@ -12,7 +12,7 @@
     "start": "electron-vite preview",
     "dist": "electron-vite build && node scripts/inject-client-id.mjs && electron-builder",
     "dist:win": "electron-vite build && node scripts/inject-client-id.mjs && electron-builder --win",
-    "test": "node test/updater.test.js",
+    "test": "node test/updater.test.js && node test/sources.test.js",
     "postinstall": "electron-builder install-app-deps"
   },
   "dependencies": {

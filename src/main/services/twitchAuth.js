@@ -13,8 +13,18 @@ const DEVICE_GRANT = 'urn:ietf:params:oauth:grant-type:device_code'
 // Public info, safe to ship. Injected at build time; falls back to env in dev.
 const CLIENT_ID = process.env.TWITCH_CLIENT_ID || '__TWITCH_CLIENT_ID__'
 
-class AuthError extends Error {}
-class AuthExpired extends AuthError {}
+class AuthError extends Error {
+  constructor(m) {
+    super(m)
+    this.name = 'AuthError'
+  }
+}
+class AuthExpired extends AuthError {
+  constructor(m) {
+    super(m)
+    this.name = 'AuthExpired'
+  }
+}
 
 function form(obj) {
   return new URLSearchParams(obj).toString()

@@ -8,9 +8,19 @@ const windows = require('./windows')
 const { createTray, updateTray } = require('./tray')
 const config = require('./services/config')
 const auth = require('./services/twitchAuth')
+const youtubeAuth = require('./services/youtubeAuth')
+const kickAuth = require('./services/kickAuth')
 const { SubTracker } = require('./services/tracker')
-const { OBSClient, OBSError } = require('./services/obs')
+const { Poller } = require('./services/poller')
+const { OBSClient } = require('./services/obs')
 const { computeGoal } = require('./services/goal')
+const {
+  PLATFORMS,
+  makeSources,
+  participates,
+  combinedCount,
+  contribution,
+} = require('./services/sources')
 const updater = require('./services/updater')
 
 if (!app.requestSingleInstanceLock()) {
@@ -18,26 +28,88 @@ if (!app.requestSingleInstanceLock()) {
   process.exit(0)
 }
 
-// live app state
+// ---- live app state ----
 let cfg = null
-let refreshToken = null
-let tracker = null
 let obs = new OBSClient()
 let count = 0
 let goal = 5
 let synced = false
-let loginCancel = false
+let obsPassword = '' // held in memory only, never written to disk
+
+// Per-source runtime state and in-memory refresh tokens. `sources` tracks each
+// platform's current/baseline totals; `refreshTokens` holds the (encrypted at
+// rest) refresh token loaded for each platform.
+const sources = makeSources()
+const refreshTokens = { twitch: null, youtube: null, kick: null }
+
+// Active source drivers while tracking.
+let twitchTracker = null
+const pollers = { youtube: null, kick: null }
+let tracking = false
+
+// Device-code login cancel flags, per platform.
+const loginCancel = { twitch: false, youtube: false, kick: false }
+
+// Manual counter nudges (the +/- on the count) and test subs fold in here so
+// they survive live/poll updates that recompute the combined count.
+let manualOffset = 0
 
 // Session goal values: a live, non-persisted copy of the goal settings the main
-// screen edits. Seeded from the saved defaults (cfg.startGoal / cfg.increment)
-// at launch; editing them on the main screen never rewrites those defaults.
+// screen edits. Seeded from the saved defaults (cfg.startGoal / cfg.increment).
 let sessStartGoal = 5
 let sessIncrement = 5
 
-// Manual goal override: the right +/- on the counter set the goal directly. A
-// manual goal sticks through incoming subs until the count reaches it (then it
-// rolls to the next milestone) or Reset clears it.
+// Manual goal override: the right +/- on the counter set the goal directly.
 let manualGoal = false
+
+// ---- provider registry: uniform per-platform auth + total access ----
+const providers = {
+  twitch: {
+    auth,
+    idKey: 'broadcasterId',
+    async getTotal() {
+      const at = await auth.refreshAccessToken(refreshTokens.twitch, (t) => persistToken('twitch', t))
+      return auth.getSubscriberCount(at, cfg.broadcasterId)
+    },
+  },
+  youtube: {
+    auth: youtubeAuth,
+    idKey: 'youtubeChannelId',
+    async getTotal() {
+      const at = await youtubeAuth.refreshAccessToken(refreshTokens.youtube, (t) =>
+        persistToken('youtube', t)
+      )
+      return youtubeAuth.getMemberCount(at)
+    },
+  },
+  kick: {
+    auth: kickAuth,
+    idKey: 'kickBroadcasterId',
+    async getTotal() {
+      const at = await kickAuth.refreshAccessToken(refreshTokens.kick, (t) => persistToken('kick', t))
+      return kickAuth.getSubscriberCount(at, cfg.kickBroadcasterId)
+    },
+  },
+}
+
+const IDENTITY_KEYS = {
+  twitch: ['broadcasterId', 'broadcasterName', 'broadcasterAvatar'],
+  youtube: ['youtubeChannelId', 'youtubeChannelName', 'youtubeAvatar'],
+  kick: ['kickBroadcasterId', 'kickChannelName', 'kickAvatar'],
+}
+
+function isConnected(p) {
+  return !!refreshTokens[p] && !!cfg[providers[p].idKey]
+}
+function platformName(p) {
+  return cfg[IDENTITY_KEYS[p][1]] || ''
+}
+function platformAvatar(p) {
+  return cfg[IDENTITY_KEYS[p][2]] || ''
+}
+function verifyUriFallback(p) {
+  return p === 'youtube' ? 'https://www.google.com/device' : 'https://www.twitch.tv/activate'
+}
 
 app.on('window-all-closed', () => {
   // tray app: closing the window hides it to the tray, so this normally
@@ -46,7 +118,7 @@ app.on('window-all-closed', () => {
 app.on('second-instance', () => windows.showWindow())
 app.on('before-quit', () => {
   app.isQuitting = true
-  if (tracker) tracker.stop()
+  stopAllDrivers()
   obs.close()
 })
 
@@ -54,22 +126,19 @@ app.whenReady().then(async () => {
   Menu.setApplicationMenu(null) // remove default File/Edit/View/Window menu bar
 
   cfg = config.load()
-  refreshToken = config.loadToken()
+  for (const p of PLATFORMS) refreshTokens[p] = config.loadToken(p)
   obsPassword = config.loadObsPassword() || ''
+  seedSources()
   sessStartGoal = cfg.startGoal
   sessIncrement = cfg.increment
   goal = computeGoal(0, sessStartGoal, sessIncrement)
 
   windows.createWindow({ preloadPath: path.join(__dirname, '../preload/index.js') })
 
-  // Put a loading screen on top immediately; present() dismisses it once the
-  // real window has painted. Guarded so a splash failure never aborts startup.
   try {
     windows.createSplash()
   } catch {}
 
-  // Show the UI first, before tray/updater, so nothing downstream can ever
-  // leave the app running with no visible window.
   if (cfg.onboarded) {
     await windows.showApp()
     if (cfg.startMinimized) windows.getWindow()?.hide()
@@ -77,12 +146,10 @@ app.whenReady().then(async () => {
     await windows.showOnboarding()
   }
 
-  // Guard tray creation: a failure here must never abort startup and leave the
-  // app running without its (already-shown) window.
   try {
     createTray({
-      getStatus: () => ({ tracking: !!tracker, count, goal }),
-      onToggleTracking: () => (tracker ? stopTracking() : startTracking()),
+      getStatus: () => ({ tracking, count, goal }),
+      onToggleTracking: () => (tracking ? stopTracking() : startTracking()),
       onReset: () => resetCount(),
     })
   } catch {}
@@ -96,7 +163,9 @@ app.whenReady().then(async () => {
     if (cfg.checkForUpdates) updater.check()
   } catch {}
 
-  if (cfg.onboarded && cfg.autostartTracking && refreshToken) startTracking()
+  if (cfg.onboarded && cfg.autostartTracking && PLATFORMS.some((p) => participates(sources[p]))) {
+    startTracking()
+  }
 })
 
 function send(channel, payload) {
@@ -104,9 +173,19 @@ function send(channel, payload) {
   if (w && !w.isDestroyed()) w.webContents.send(channel, payload)
 }
 
-function persistToken(token) {
-  refreshToken = token
-  const secure = config.saveToken(token)
+// Seed the runtime source map from persisted config: which platforms the user
+// wants included, and which currently have a linked account.
+function seedSources() {
+  sources.twitch.enabled = !!cfg.twitchEnabled
+  sources.youtube.enabled = !!cfg.youtubeEnabled
+  sources.kick.enabled = !!cfg.kickEnabled
+  for (const p of PLATFORMS) sources[p].connected = isConnected(p)
+}
+
+function persistToken(platform, token) {
+  refreshTokens[platform] = token
+  const secure = config.saveToken(platform, token)
+  sources[platform].connected = isConnected(platform)
   if (!secure && !cfg.insecureTokenFallback) {
     cfg.insecureTokenFallback = true
     config.save(cfg)
@@ -114,13 +193,25 @@ function persistToken(token) {
   }
 }
 
+function recomputeCount() {
+  count = combinedCount(sources, synced, manualOffset)
+}
+
+function platformsSnapshot() {
+  return PLATFORMS.map((p) => ({
+    id: p,
+    enabled: sources[p].enabled,
+    connected: isConnected(p),
+    name: platformName(p),
+    avatar: platformAvatar(p),
+    total: sources[p].total,
+    contribution: contribution(sources[p], synced),
+    live: sources[p].live,
+  }))
+}
+
 // ---- output: file + obs ----
 async function pushOutput() {
-  // A manual goal (set via the right +/-) is kept as-is until the count catches
-  // up to it; once count >= goal we roll to the next milestone and drop the
-  // override. Otherwise the goal is derived from the session goal values — and
-  // when synced, the base is interval-aligned (nearest increment strictly above
-  // the count) instead of the session starting goal.
   if (manualGoal && count < goal) {
     // keep the manually set goal
   } else {
@@ -130,8 +221,8 @@ async function pushOutput() {
       : computeGoal(count, sessStartGoal, sessIncrement)
   }
   const text = `${count}/${goal}`
-  send('count-changed', { count, goal })
-  updateTray({ tracking: !!tracker, count, goal })
+  send('count-changed', { count, goal, platforms: platformsSnapshot() })
+  updateTray({ tracking, count, goal })
 
   if (cfg.writeToFile && cfg.outputFile) {
     try {
@@ -151,61 +242,143 @@ async function pushOutput() {
   }
 }
 
-let obsPassword = '' // held in memory only, never written to disk
-
 // ---- tracking ----
 function startTracking() {
-  if (!refreshToken || !cfg.broadcasterId) {
+  const active = PLATFORMS.filter((p) => participates(sources[p]))
+  if (!active.length) {
     send('need-login')
     return
   }
-  // Preserve the seeded value when synced; otherwise start each session at 0.
-  if (!synced) count = 0
+  tracking = true
+  manualOffset = 0
+
+  for (const p of active) {
+    if (sources[p].live) {
+      // Twitch: session mode counts new subs from 0; synced mode fetches the
+      // real total below and lets live subs add on top.
+      sources[p].total = 0
+      sources[p].sessionBase = 0
+    } else {
+      // Polled: the poller's first tick establishes the session baseline.
+      sources[p].sessionBase = null
+    }
+  }
+
+  recomputeCount()
   pushOutput()
 
-  tracker = new SubTracker({
-    broadcasterId: cfg.broadcasterId,
-    refreshToken,
-    onNewRefreshToken: persistToken,
-  })
-  tracker.on('subs', (n) => {
-    count = Math.max(0, count + n)
-    pushOutput()
-  })
-  // Benign tracker info (gift announcements, "Reconnecting…") no longer has a UI
-  // surface in the redesign — the counter updates on its own — so it is dropped
-  // rather than shown. Only genuine errors reach the toast.
-  tracker.on('error', (m) => send('status', m))
-  tracker.on('auth-expired', (m) => {
-    stopTracking()
-    send('auth-expired', m)
-  })
-  tracker.on('stopped', () => {
-    updateTray({ tracking: false, count, goal })
-    send('tracking-changed', false)
-  })
-  tracker.start()
-  updateTray({ tracking: true, count, goal })
+  if (participates(sources.twitch)) {
+    startTwitchTracker()
+    if (synced) fetchTwitchTotal()
+  }
+  for (const p of ['youtube', 'kick']) {
+    if (participates(sources[p])) startPoller(p)
+  }
+
+  updateTray({ tracking, count, goal })
   send('tracking-changed', true)
 }
 
-function stopTracking() {
-  if (tracker) {
-    tracker.stop()
-    tracker = null
+function startTwitchTracker() {
+  twitchTracker = new SubTracker({
+    broadcasterId: cfg.broadcasterId,
+    refreshToken: refreshTokens.twitch,
+    onNewRefreshToken: (t) => persistToken('twitch', t),
+  })
+  twitchTracker.on('subs', (n) => {
+    sources.twitch.total = Math.max(0, (sources.twitch.total || 0) + n)
+    recomputeCount()
+    pushOutput()
+  })
+  twitchTracker.on('error', (m) => send('status', m))
+  twitchTracker.on('auth-expired', (m) => handleAuthExpired('twitch', m))
+  twitchTracker.on('stopped', () => {})
+  twitchTracker.start()
+}
+
+// One-shot Twitch total fetch (synced mode) — live subs accumulate on top.
+async function fetchTwitchTotal() {
+  try {
+    const total = await providers.twitch.getTotal()
+    sources.twitch.total = Math.max(0, Number(total) || 0)
+    recomputeCount()
+    pushOutput()
+  } catch (e) {
+    if (e && e.name === 'AuthExpired') handleAuthExpired('twitch', e.message)
   }
+}
+
+function startPoller(p) {
+  const poller = new Poller({
+    fetchTotal: () => providers[p].getTotal(),
+    intervalMs: (Number(cfg.pollIntervalSec) || 60) * 1000,
+  })
+  poller.on('total', (t) => {
+    const total = Math.max(0, Number(t) || 0)
+    const s = sources[p]
+    if (!synced && s.sessionBase == null) s.sessionBase = total // first tick baselines
+    s.total = total
+    recomputeCount()
+    pushOutput()
+  })
+  poller.on('error', (m) => send('status', m))
+  poller.on('auth-expired', (m) => handleAuthExpired(p, m))
+  poller.start()
+  pollers[p] = poller
+}
+
+function stopSourceDriver(p) {
+  if (p === 'twitch' && twitchTracker) {
+    twitchTracker.stop()
+    twitchTracker = null
+  }
+  if (pollers[p]) {
+    pollers[p].stop()
+    pollers[p] = null
+  }
+}
+
+function stopAllDrivers() {
+  for (const p of PLATFORMS) stopSourceDriver(p)
+}
+
+function anyDriverActive() {
+  return !!twitchTracker || !!pollers.youtube || !!pollers.kick
+}
+
+function stopTracking() {
+  tracking = false
+  stopAllDrivers()
   updateTray({ tracking: false, count, goal })
   send('tracking-changed', false)
 }
 
+// One platform's auth failing stops only that source; the others keep tracking.
+function handleAuthExpired(platform, msg) {
+  stopSourceDriver(platform)
+  sources[platform].connected = false
+  recomputeCount()
+  pushOutput()
+  send('auth-expired', { platform, message: msg })
+  if (tracking && !anyDriverActive()) {
+    tracking = false
+    updateTray({ tracking: false, count, goal })
+    send('tracking-changed', false)
+  }
+}
+
 function resetCount() {
-  count = 0
+  manualOffset = 0
+  for (const p of PLATFORMS) {
+    if (sources[p].live) sources[p].sessionBase = sources[p].total
+    else sources[p].sessionBase = null // re-baseline on the next poll
+  }
   manualGoal = false
+  recomputeCount()
   pushOutput()
 }
 
-// Right +/- on the counter: set the goal directly. Never let it fall to or
-// below the current count. Flagged as manual so pushOutput keeps it.
+// Right +/- on the counter: set the goal directly, never at/below the count.
 function adjustGoal(n) {
   goal = Math.max(count + 1, goal + n)
   manualGoal = true
@@ -216,29 +389,27 @@ function adjustGoal(n) {
 
 ipcMain.handle('get-state', () => ({
   cfg,
-  connected: !!refreshToken && !!cfg.broadcasterId,
+  // Legacy Twitch-centric fields, still read by existing Settings/Main code.
+  connected: isConnected('twitch'),
   broadcasterName: cfg.broadcasterName,
   broadcasterAvatar: cfg.broadcasterAvatar,
-  tracking: !!tracker,
+  tracking,
   synced,
   count,
   goal,
-  // Live session goal values (the main screen edits these, not the defaults).
   startGoal: sessStartGoal,
   increment: sessIncrement,
   obsPassword,
+  // Multi-source snapshot.
+  platforms: platformsSnapshot(),
 }))
 
-// Persist a settings patch (Settings screen: default goal values, OBS host/port).
-// This does not touch the live session goal or recompute the current goal.
 ipcMain.handle('save-settings', (_e, patch) => {
   Object.assign(cfg, patch)
   config.save(cfg)
   return cfg
 })
 
-// Main screen goal inputs: update the live session values (not persisted) and
-// recompute the current goal from them.
 ipcMain.handle('set-session-goal', (_e, { startGoal, increment } = {}) => {
   if (startGoal != null) sessStartGoal = Math.max(1, Number(startGoal) || 1)
   if (increment != null) sessIncrement = Math.max(1, Number(increment) || 1)
@@ -247,8 +418,6 @@ ipcMain.handle('set-session-goal', (_e, { startGoal, increment } = {}) => {
   return { startGoal: sessStartGoal, increment: sessIncrement, count, goal }
 })
 
-// Danger Zone > Reset to Defaults: restore the saved default goal settings to
-// the factory values. Leaves the live session, count and Twitch/OBS untouched.
 ipcMain.handle('reset-defaults', () => {
   cfg.startGoal = config.DEFAULTS.startGoal
   cfg.increment = config.DEFAULTS.increment
@@ -262,54 +431,121 @@ ipcMain.handle('set-obs-password', (_e, pw) => {
   return true
 })
 
-// --- Twitch login (device code) ---
-ipcMain.handle('twitch-login-start', async () => {
-  loginCancel = false
+// --- platform enable/disable (include in the combined goal) ---
+ipcMain.handle('set-platform-enabled', (_e, { platform, on } = {}) => {
+  if (!PLATFORMS.includes(platform)) return { error: 'Unknown platform' }
+  sources[platform].enabled = !!on
+  cfg[`${platform}Enabled`] = !!on
+  config.save(cfg)
+  if (tracking) {
+    if (on && participates(sources[platform])) {
+      if (platform === 'twitch') {
+        if (!twitchTracker) startTwitchTracker()
+      } else if (!pollers[platform]) {
+        sources[platform].sessionBase = null
+        startPoller(platform)
+      }
+    } else if (!on) {
+      stopSourceDriver(platform)
+    }
+  }
+  recomputeCount()
+  pushOutput()
+  return { platform, enabled: sources[platform].enabled }
+})
+
+// --- login (device code for twitch/youtube, browser loopback for kick) ---
+ipcMain.handle('login-start', async (_e, platform) => {
+  if (!PLATFORMS.includes(platform)) return { error: 'Unknown platform' }
+  return platform === 'kick' ? startKickLogin() : startDeviceLogin(platform)
+})
+
+ipcMain.handle('login-cancel', (_e, platform) => {
+  if (PLATFORMS.includes(platform)) loginCancel[platform] = true
+})
+
+ipcMain.handle('logout', (_e, platform) => {
+  if (!PLATFORMS.includes(platform)) return false
+  return logoutPlatform(platform)
+})
+
+async function saveIdentity(platform, accessToken) {
+  let ident
+  if (platform === 'twitch') ident = await auth.getCurrentUser(accessToken)
+  else if (platform === 'youtube') ident = await youtubeAuth.getCurrentChannel(accessToken)
+  else ident = await kickAuth.getCurrentChannel(accessToken)
+  const [idK, nameK, avaK] = IDENTITY_KEYS[platform]
+  cfg[idK] = ident.id
+  cfg[nameK] = ident.name
+  cfg[avaK] = ident.avatar || ''
+  config.save(cfg)
+  sources[platform].connected = isConnected(platform)
+}
+
+async function startDeviceLogin(platform) {
+  const prov = providers[platform].auth
+  loginCancel[platform] = false
   try {
-    const dc = await auth.startDeviceFlow()
-    // kick off polling in the background; result comes via events
+    const dc = await prov.startDeviceFlow()
     ;(async () => {
       try {
-        const { accessToken, refreshToken: rt } = await auth.pollForToken(
+        const { accessToken, refreshToken: rt } = await prov.pollForToken(
           dc.device_code,
           dc.interval,
           dc.expires_in,
-          () => loginCancel
+          () => loginCancel[platform]
         )
-        persistToken(rt)
-        const user = await auth.getCurrentUser(accessToken)
-        cfg.broadcasterId = user.id
-        cfg.broadcasterName = user.name
-        cfg.broadcasterAvatar = user.avatar || ''
-        config.save(cfg)
-        send('twitch-login-ok', { name: user.name, avatar: user.avatar || '' })
+        persistToken(platform, rt)
+        await saveIdentity(platform, accessToken)
+        send('login-ok', { platform, name: platformName(platform), avatar: platformAvatar(platform) })
       } catch (e) {
-        send('twitch-login-failed', e.message)
+        send('login-failed', { platform, message: e.message })
       }
     })()
     return {
+      platform,
       userCode: dc.user_code,
-      verificationUri: dc.verification_uri || 'https://www.twitch.tv/activate',
+      verificationUri: dc.verification_uri || dc.verification_url || verifyUriFallback(platform),
     }
   } catch (e) {
-    return { error: e.message }
+    return { platform, error: e.message }
   }
-})
+}
 
-ipcMain.handle('twitch-login-cancel', () => {
-  loginCancel = true
-})
+function startKickLogin() {
+  loginCancel.kick = false
+  ;(async () => {
+    try {
+      const { accessToken, refreshToken: rt } = await kickAuth.login({
+        openUrl: (u) => shell.openExternal(u),
+      })
+      persistToken('kick', rt)
+      await saveIdentity('kick', accessToken)
+      send('login-ok', { platform: 'kick', name: platformName('kick'), avatar: platformAvatar('kick') })
+    } catch (e) {
+      send('login-failed', { platform: 'kick', message: e.message })
+    }
+  })()
+  // Kick opens the system browser itself; there's no code to display in-app.
+  return { platform: 'kick', browser: true }
+}
 
-ipcMain.handle('twitch-logout', () => {
-  if (tracker) stopTracking()
-  config.clearToken()
-  refreshToken = null
-  cfg.broadcasterId = ''
-  cfg.broadcasterName = ''
-  cfg.broadcasterAvatar = ''
+function logoutPlatform(platform) {
+  stopSourceDriver(platform)
+  config.clearToken(platform)
+  refreshTokens[platform] = null
+  for (const k of IDENTITY_KEYS[platform]) cfg[k] = ''
   config.save(cfg)
+  sources[platform].connected = false
+  recomputeCount()
+  pushOutput()
+  if (tracking && !anyDriverActive()) {
+    tracking = false
+    updateTray({ tracking: false, count, goal })
+    send('tracking-changed', false)
+  }
   return true
-})
+}
 
 // --- OBS ---
 ipcMain.handle('obs-auto-detect', async () => {
@@ -326,8 +562,6 @@ ipcMain.handle('obs-connect', async (_e, { host, port, password }) => {
     cfg.obsHost = host
     cfg.obsPort = port
     config.save(cfg)
-    // Remember the password (encrypted) so re-editing prefills it and the app
-    // can reconnect after a restart. An empty password clears any stored one.
     config.saveObsPassword(obsPassword)
     return { ok: true }
   } catch (e) {
@@ -354,14 +588,12 @@ ipcMain.handle('obs-create-source', async (_e, name) => {
   }
 })
 
-// Bind to an existing text source without creating anything.
 ipcMain.handle('obs-select-source', (_e, name) => {
   cfg.obsSource = name || ''
   config.save(cfg)
   return { ok: true, name: cfg.obsSource }
 })
 
-// Write sample text to a source so the user can confirm it shows in OBS.
 ipcMain.handle('obs-test-source', async (_e, name) => {
   try {
     await obs.setText(name || cfg.obsSource, `${count}/${goal}`)
@@ -376,28 +608,42 @@ ipcMain.handle('start-tracking', () => startTracking())
 ipcMain.handle('stop-tracking', () => stopTracking())
 ipcMain.handle('reset-count', () => resetCount())
 ipcMain.handle('adjust-count', (_e, n) => {
-  count = Math.max(0, count + n)
+  manualOffset += n
+  const srcSum = combinedCount(sources, synced, 0)
+  if (srcSum + manualOffset < 0) manualOffset = -srcSum // never drive below 0
+  recomputeCount()
   pushOutput()
 })
 ipcMain.handle('adjust-goal', (_e, n) => adjustGoal(n))
 
-// --- sync counter to current Twitch sub total ---
+// --- sync counter to current totals across all connected platforms ---
 ipcMain.handle('sync-sub-count', async (_e, on) => {
   if (!on) {
     synced = false
-    count = 0
+    manualOffset = 0
+    for (const p of PLATFORMS) {
+      if (sources[p].live) {
+        sources[p].sessionBase = tracking ? sources[p].total : 0
+        if (!tracking) sources[p].total = 0
+      } else {
+        sources[p].sessionBase = null
+      }
+    }
+    recomputeCount()
     pushOutput()
     return { ok: true, synced: false, count, goal }
   }
-  if (!refreshToken || !cfg.broadcasterId) {
-    return { ok: false, error: 'Connect your Twitch account first.' }
-  }
+  const active = PLATFORMS.filter((p) => participates(sources[p]))
+  if (!active.length) return { ok: false, error: 'Connect a platform first.' }
   try {
-    const accessToken = await auth.refreshAccessToken(refreshToken, persistToken)
-    const total = await auth.getSubscriberCount(accessToken, cfg.broadcasterId)
+    manualOffset = 0
+    for (const p of active) {
+      const total = await providers[p].getTotal()
+      sources[p].total = Math.max(0, Number(total) || 0)
+    }
     synced = true
-    count = Math.max(0, total | 0)
-    pushOutput() // recomputes goal as the nearest increment strictly above count
+    recomputeCount()
+    pushOutput()
     return { ok: true, synced: true, count, goal }
   } catch (e) {
     return { ok: false, error: e.message }
@@ -406,28 +652,29 @@ ipcMain.handle('sync-sub-count', async (_e, on) => {
 
 // --- test sub (onboarding + testing) ---
 ipcMain.handle('fire-test-sub', () => {
-  count = Math.max(0, count + 1)
+  manualOffset += 1
+  recomputeCount()
   pushOutput()
 })
 
-// Wipe everything back to a first-run state: settings, Twitch login and the
-// saved OBS password. The renderer navigates to onboarding afterward; on next
-// launch the cleared onboarded flag sends the user through setup again.
 ipcMain.handle('reset-all-data', () => {
-  if (tracker) stopTracking()
+  stopTracking()
   try {
     obs.close()
   } catch {}
-  config.clearToken()
+  for (const p of PLATFORMS) config.clearToken(p)
   config.clearObsPassword()
   cfg = { ...config.DEFAULTS }
   config.save(cfg)
-  refreshToken = null
+  for (const p of PLATFORMS) refreshTokens[p] = null
   obsPassword = ''
   obs = new OBSClient()
   count = 0
   synced = false
   manualGoal = false
+  manualOffset = 0
+  Object.assign(sources, makeSources())
+  seedSources()
   sessStartGoal = cfg.startGoal
   sessIncrement = cfg.increment
   goal = computeGoal(0, sessStartGoal, sessIncrement)
