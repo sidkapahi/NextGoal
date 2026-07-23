@@ -34,9 +34,9 @@ win:
   icon: build/icon.ico
   artifactName: ${productName}-Setup-${version}.${ext}
 
-# Auto-update source. Alpha builds are published as prereleases.
+# Auto-update source. Published as full (latest) GitHub releases.
 publish:
   provider: github
   owner: sidkapahi
   repo: nextgoal
-  releaseType: prerelease
+  releaseType: release
