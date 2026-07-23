@@ -22,11 +22,13 @@ function randomState() {
   return base64url(crypto.randomBytes(16))
 }
 
-// Starts a loopback server on a random 127.0.0.1 port. Resolves with:
-//   redirectUri            — register this (or its localhost prefix) on the app
+// Starts a loopback server on 127.0.0.1. Pass a fixed `port` for providers that
+// require the redirect URI to be registered exactly (Twitch, Kick); omit it (0)
+// for providers that allow any loopback port (Google Desktop apps). Resolves:
+//   redirectUri            — register this on the app when a fixed port is used
 //   waitForCode(state, ms) — resolves with the ?code once the browser returns
 //   close()                — tear the server down (always call in a finally)
-function startLoopback() {
+function startLoopback(port = 0) {
   return new Promise((resolve, reject) => {
     let onResult = null
     const server = http.createServer((req, res) => {
@@ -49,10 +51,10 @@ function startLoopback() {
       }
     })
     server.on('error', reject)
-    server.listen(0, '127.0.0.1', () => {
-      const port = server.address().port
+    server.listen(port, '127.0.0.1', () => {
+      const boundPort = server.address().port
       resolve({
-        redirectUri: `http://localhost:${port}/callback`,
+        redirectUri: `http://localhost:${boundPort}/callback`,
         waitForCode(expectedState, timeoutMs = 300000) {
           return new Promise((res2, rej2) => {
             const timer = setTimeout(() => {

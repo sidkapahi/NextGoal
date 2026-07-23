@@ -24,6 +24,10 @@ const API_BASE = 'https://api.kick.com/public/v1'
 // (Kick has no "read subscriber count" scope — sub data comes via events.)
 const SCOPES = 'user:read channel:read events:subscribe'
 
+// Kick requires the redirect URI to be registered exactly, so we use a fixed
+// loopback port. Register http://localhost:8577/callback on your Kick app.
+const REDIRECT_PORT = 8577
+
 // Injected at build time; env fallback in dev. Kick issues a confidential
 // client, so the token exchange also carries a client secret alongside PKCE.
 const CLIENT_ID = process.env.KICK_CLIENT_ID || '__KICK_CLIENT_ID__'
@@ -52,7 +56,7 @@ function form(obj) {
 async function login({ openUrl }) {
   const { verifier, challenge } = createPkce()
   const state = randomState()
-  const loop = await startLoopback()
+  const loop = await startLoopback(REDIRECT_PORT)
   try {
     const authUrl =
       `${AUTHORIZE_URL}?` +
