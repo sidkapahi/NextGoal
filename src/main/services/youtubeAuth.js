@@ -43,6 +43,16 @@ class AuthExpired extends AuthError {
     this.name = 'AuthExpired'
   }
 }
+// Terminal (non-retryable): the channel can't use the memberships API — it isn't
+// a YouTube Partner Program channel with memberships enabled. `fatal` tells the
+// poller to stop rather than retry the same 403 every interval.
+class MembersUnavailable extends AuthError {
+  constructor(m) {
+    super(m)
+    this.name = 'MembersUnavailable'
+    this.fatal = true
+  }
+}
 
 function form(obj) {
   return new URLSearchParams(obj).toString()
@@ -145,6 +155,10 @@ async function getMemberCount(accessToken) {
     })
     if (res.status === 401)
       throw new AuthExpired('Your YouTube login expired. Please log in again.')
+    if (res.status === 403)
+      throw new MembersUnavailable(
+        "YouTube: this channel can't use the memberships API (needs the Partner Program with channel memberships enabled)."
+      )
     if (!res.ok) throw new AuthError(`Couldn't read your members (${res.status}).`)
     const data = await res.json()
     total += (data.items || []).length
@@ -159,6 +173,7 @@ module.exports = {
   SCOPES,
   AuthError,
   AuthExpired,
+  MembersUnavailable,
   login,
   refreshAccessToken,
   getCurrentChannel,

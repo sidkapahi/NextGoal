@@ -322,6 +322,12 @@ function startPoller(p) {
     pushOutput()
   })
   poller.on('error', (m) => send('status', m))
+  // A non-retryable failure (e.g. the channel can't use the memberships API):
+  // stop this source and surface the reason once, rather than retrying forever.
+  poller.on('fatal', (m) => {
+    stopSourceDriver(p)
+    send('status', m)
+  })
   poller.on('auth-expired', (m) => handleAuthExpired(p, m))
   poller.start()
   pollers[p] = poller
