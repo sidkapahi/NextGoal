@@ -34,12 +34,14 @@ npm run dev
   [dev.twitch.tv/console/apps](https://dev.twitch.tv/console/apps), redirect
   `http://localhost`, category Broadcasting Suite. Scope: `channel:read:subscriptions`.
 - **YouTube** — a Google Cloud project with **YouTube Data API v3** enabled and
-  an OAuth client (TV & Limited-Input Devices). The `members.list` API needs the
-  **restricted `youtube.channel-memberships.creator` scope**, which Google gates
-  behind an allowlist — request access from your YouTube representative. The
-  channel must be in the Partner Program with memberships on. Google's device
-  flow needs a client secret; for an installed app it is treated as
-  non-confidential and ships in the binary.
+  an OAuth client of type **Desktop app** (Authorization Code + PKCE via a
+  loopback redirect — Google auto-allows `http://localhost`, no redirect to
+  register). Add the `youtube.readonly` and `youtube.channel-memberships.creator`
+  scopes; the memberships one is **sensitive**, so keep the app in *Testing* mode
+  and add your channel's Google account as a **test user** to use it without full
+  verification. The channel must be in the Partner Program with memberships on.
+  Desktop-app clients carry a client secret; for an installed app Google treats
+  it as non-confidential (it ships in the binary).
 - **Kick** — a Kick Developer App (OAuth 2.1 + PKCE, a **confidential** client:
   client ID **and secret**). Register `http://localhost` as an allowed redirect
   and request the `user:read`, `channel:read`, and `events:subscribe` scopes.

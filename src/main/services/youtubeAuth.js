@@ -1,33 +1,33 @@
 'use strict'
 
-// YouTube auth via Google's OAuth 2.0 for TV & Limited-Input Devices (the same
-// device-code UX as Twitch: show a code, poll for the token). Mirrors the shape
-// of twitchAuth.js so index.js can treat the providers uniformly.
+// YouTube auth via Google's OAuth 2.0 for a **Desktop app** client:
+// Authorization Code + PKCE through a loopback redirect (browser opens, you
+// approve, it returns automatically) — the same UX as Kick. Mirrors the shape
+// of kickAuth.js so index.js can drive both the same way.
 //
-// IMPORTANT: the membership APIs need the RESTRICTED scope
-// `youtube.channel-memberships.creator`, which Google gates behind an allowlist
-// (contact your YouTube representative) and OAuth-consent verification for a
-// shipped app. The channel must be in the YouTube Partner Program with channel
-// memberships enabled. There is no "member count" field — the count is obtained
-// by paginating members.list and counting, so callers should poll infrequently.
+// IMPORTANT: the membership APIs need `youtube.channel-memberships.creator`
+// (a "sensitive" scope — usable in Testing mode with the channel owner added as
+// a test user; production release needs Google verification). The channel must
+// be in the YouTube Partner Program with channel memberships enabled. There is
+// no "member count" field — the count is obtained by paginating members.list and
+// counting, so callers should poll infrequently.
 //
-// Unlike Twitch's public device flow, Google's device flow requires a client
-// secret. For an installed/desktop app Google explicitly treats this secret as
-// non-confidential (it ships in the binary); it is injected at build time next
-// to the client ID.
+// Desktop-app clients carry a client secret in the token exchange; for an
+// installed app Google treats it as non-confidential (it ships in the binary).
+// Both are injected at build time.
 
-const DEVICE_URL = 'https://oauth2.googleapis.com/device/code'
+const { createPkce, randomState, startLoopback } = require('./oauthLoopback')
+
+const AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth'
 const TOKEN_URL = 'https://oauth2.googleapis.com/token'
 const CHANNELS_URL = 'https://www.googleapis.com/youtube/v3/channels'
 const MEMBERS_URL = 'https://www.googleapis.com/youtube/v3/members'
-const DEVICE_GRANT = 'urn:ietf:params:oauth:grant-type:device_code'
 
 const SCOPES = [
   'https://www.googleapis.com/auth/youtube.channel-memberships.creator',
   'https://www.googleapis.com/auth/youtube.readonly',
 ].join(' ')
 
-// Public info for an installed app, injected at build time; env fallback in dev.
 const CLIENT_ID = process.env.YOUTUBE_CLIENT_ID || '__YOUTUBE_CLIENT_ID__'
 const CLIENT_SECRET = process.env.YOUTUBE_CLIENT_SECRET || '__YOUTUBE_CLIENT_SECRET__'
 
@@ -48,64 +48,51 @@ function form(obj) {
   return new URLSearchParams(obj).toString()
 }
 
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
+// Drives the browser round-trip. `openUrl` is injected by the caller (wired to
+// shell.openExternal in the main process) so this module stays Electron-free.
+// access_type=offline + prompt=consent make Google return a refresh token.
+async function login({ openUrl }) {
+  const { verifier, challenge } = createPkce()
+  const state = randomState()
+  const loop = await startLoopback()
+  try {
+    const authUrl =
+      `${AUTH_URL}?` +
+      form({
+        response_type: 'code',
+        client_id: CLIENT_ID,
+        redirect_uri: loop.redirectUri,
+        scope: SCOPES,
+        code_challenge: challenge,
+        code_challenge_method: 'S256',
+        access_type: 'offline',
+        prompt: 'consent',
+        state,
+      })
+    openUrl(authUrl)
 
-async function startDeviceFlow() {
-  const res = await fetch(DEVICE_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: form({ client_id: CLIENT_ID, scope: SCOPES }),
-  })
-  if (!res.ok) throw new AuthError(`Couldn't start YouTube login (${res.status}).`)
-  // { device_code, user_code, verification_url, interval, expires_in }
-  return res.json()
-}
-
-async function pollForToken(deviceCode, interval, expiresIn, shouldCancel) {
-  let wait = Math.max(1, Number(interval) || 5)
-  const deadline = Date.now() + (Number(expiresIn) || 1800) * 1000
-
-  while (Date.now() < deadline) {
-    if (shouldCancel && shouldCancel()) throw new AuthError('Login cancelled.')
-    await sleep(wait * 1000)
+    const code = await loop.waitForCode(state)
 
     const res = await fetch(TOKEN_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: form({
+        grant_type: 'authorization_code',
         client_id: CLIENT_ID,
         client_secret: CLIENT_SECRET,
-        device_code: deviceCode,
-        grant_type: DEVICE_GRANT,
+        redirect_uri: loop.redirectUri,
+        code,
+        code_verifier: verifier,
       }),
     })
-
-    if (res.ok) {
-      const data = await res.json()
-      return { accessToken: data.access_token, refreshToken: data.refresh_token }
-    }
-
-    let err = ''
-    try {
-      err = ((await res.json()).error || '').toLowerCase()
-    } catch {
-      err = ''
-    }
-
-    if (err === 'authorization_pending') continue
-    if (err === 'slow_down') {
-      wait += 2
-      continue
-    }
-    if (err === 'expired_token') throw new AuthError('That code expired. Try again.')
-    if (err === 'access_denied') throw new AuthError('Authorization was denied.')
-    throw new AuthError(`Login failed: ${err || res.status}`)
+    if (!res.ok) throw new AuthError(`YouTube login failed (${res.status}).`)
+    const data = await res.json()
+    return { accessToken: data.access_token, refreshToken: data.refresh_token }
+  } finally {
+    loop.close()
   }
-  throw new AuthError('Login timed out. Try again.')
 }
 
-// Google refresh tokens are long-lived and reusable (unlike Twitch's single-use
-// ones), but we keep the onNewRefreshToken hook for a consistent interface.
 async function refreshAccessToken(refreshToken, onNewRefreshToken) {
   const res = await fetch(TOKEN_URL, {
     method: 'POST',
@@ -172,8 +159,7 @@ module.exports = {
   SCOPES,
   AuthError,
   AuthExpired,
-  startDeviceFlow,
-  pollForToken,
+  login,
   refreshAccessToken,
   getCurrentChannel,
   getMemberCount,

@@ -454,10 +454,10 @@ ipcMain.handle('set-platform-enabled', (_e, { platform, on } = {}) => {
   return { platform, enabled: sources[platform].enabled }
 })
 
-// --- login (device code for twitch/youtube, browser loopback for kick) ---
+// --- login (device code for twitch; browser loopback for youtube + kick) ---
 ipcMain.handle('login-start', async (_e, platform) => {
   if (!PLATFORMS.includes(platform)) return { error: 'Unknown platform' }
-  return platform === 'kick' ? startKickLogin() : startDeviceLogin(platform)
+  return platform === 'twitch' ? startDeviceLogin('twitch') : startLoopbackLogin(platform)
 })
 
 ipcMain.handle('login-cancel', (_e, platform) => {
@@ -512,22 +512,24 @@ async function startDeviceLogin(platform) {
   }
 }
 
-function startKickLogin() {
-  loginCancel.kick = false
+// YouTube + Kick: OAuth via a loopback redirect. The provider opens the system
+// browser itself and resolves once the redirect lands, so there's no code to
+// show in-app.
+function startLoopbackLogin(platform) {
+  loginCancel[platform] = false
   ;(async () => {
     try {
-      const { accessToken, refreshToken: rt } = await kickAuth.login({
+      const { accessToken, refreshToken: rt } = await providers[platform].auth.login({
         openUrl: (u) => shell.openExternal(u),
       })
-      persistToken('kick', rt)
-      await saveIdentity('kick', accessToken)
-      send('login-ok', { platform: 'kick', name: platformName('kick'), avatar: platformAvatar('kick') })
+      persistToken(platform, rt)
+      await saveIdentity(platform, accessToken)
+      send('login-ok', { platform, name: platformName(platform), avatar: platformAvatar(platform) })
     } catch (e) {
-      send('login-failed', { platform: 'kick', message: e.message })
+      send('login-failed', { platform, message: e.message })
     }
   })()
-  // Kick opens the system browser itself; there's no code to display in-app.
-  return { platform: 'kick', browser: true }
+  return { platform, browser: true }
 }
 
 function logoutPlatform(platform) {
