@@ -20,11 +20,14 @@ const AUTHORIZE_URL = 'https://id.kick.com/oauth/authorize'
 const TOKEN_URL = 'https://id.kick.com/oauth/token'
 const API_BASE = 'https://api.kick.com/public/v1'
 
-// Read-only scopes: identify the channel and read its subscriptions.
-const SCOPES = 'user:read channel:read'
+// Read-only scopes: identify the user + channel and subscribe to sub events.
+// (Kick has no "read subscriber count" scope — sub data comes via events.)
+const SCOPES = 'user:read channel:read events:subscribe'
 
-// Public info for a PKCE client, injected at build time; env fallback in dev.
+// Injected at build time; env fallback in dev. Kick issues a confidential
+// client, so the token exchange also carries a client secret alongside PKCE.
 const CLIENT_ID = process.env.KICK_CLIENT_ID || '__KICK_CLIENT_ID__'
+const CLIENT_SECRET = process.env.KICK_CLIENT_SECRET || '__KICK_CLIENT_SECRET__'
 
 class AuthError extends Error {
   constructor(m) {
@@ -72,6 +75,7 @@ async function login({ openUrl }) {
       body: form({
         grant_type: 'authorization_code',
         client_id: CLIENT_ID,
+        client_secret: CLIENT_SECRET,
         redirect_uri: loop.redirectUri,
         code,
         code_verifier: verifier,
@@ -92,6 +96,7 @@ async function refreshAccessToken(refreshToken, onNewRefreshToken) {
     body: form({
       grant_type: 'refresh_token',
       client_id: CLIENT_ID,
+      client_secret: CLIENT_SECRET,
       refresh_token: refreshToken,
     }),
   })

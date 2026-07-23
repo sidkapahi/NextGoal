@@ -15,6 +15,7 @@ const SUBS = [
   ['__YOUTUBE_CLIENT_ID__', 'YOUTUBE_CLIENT_ID', false],
   ['__YOUTUBE_CLIENT_SECRET__', 'YOUTUBE_CLIENT_SECRET', false],
   ['__KICK_CLIENT_ID__', 'KICK_CLIENT_ID', false],
+  ['__KICK_CLIENT_SECRET__', 'KICK_CLIENT_SECRET', false],
 ]
 
 let injected = 0

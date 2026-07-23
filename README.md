@@ -26,7 +26,7 @@ that platform just can't be linked):
 # bash
 TWITCH_CLIENT_ID=... \
 YOUTUBE_CLIENT_ID=... YOUTUBE_CLIENT_SECRET=... \
-KICK_CLIENT_ID=... \
+KICK_CLIENT_ID=... KICK_CLIENT_SECRET=... \
 npm run dev
 ```
 
@@ -40,13 +40,15 @@ npm run dev
   channel must be in the Partner Program with memberships on. Google's device
   flow needs a client secret; for an installed app it is treated as
   non-confidential and ships in the binary.
-- **Kick** — a Kick Developer App (OAuth 2.1, PKCE — a public client, no
-  secret). Register `http://localhost` as an allowed redirect. Confirm the read
-  scope / subscriber-count endpoint against the
+- **Kick** — a Kick Developer App (OAuth 2.1 + PKCE, a **confidential** client:
+  client ID **and secret**). Register `http://localhost` as an allowed redirect
+  and request the `user:read`, `channel:read`, and `events:subscribe` scopes.
+  Kick has no "read subscriber count" scope — sub data comes through the events
+  subscription, so confirm the counting approach against the
   [Kick dev docs](https://github.com/KickEngineering/KickDevDocs).
 
-All client IDs are public info (they ship in the built app). The YouTube secret
-is the installed-app kind Google treats as non-confidential.
+Client IDs are public info (they ship in the built app). The YouTube and Kick
+secrets are the installed-app kind treated as non-confidential.
 
 ## Build an installer
 
