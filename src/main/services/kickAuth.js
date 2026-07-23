@@ -125,29 +125,19 @@ async function getCurrentChannel(accessToken) {
   }
 }
 
-// Current subscriber total. Kick's subscriptions endpoint is paginated; where a
-// total is provided we use it, otherwise we page and count. Confirm the exact
-// path/field against KickDevDocs before shipping.
-async function getSubscriberCount(accessToken, broadcasterId) {
-  const qs = new URLSearchParams({ broadcaster_user_id: String(broadcasterId), limit: '100' })
-  let total = 0
-  let cursor = ''
-  for (let page = 0; page < 200; page++) {
-    if (cursor) qs.set('cursor', cursor)
-    const res = await fetch(`${API_BASE}/channels/subscriptions?${qs.toString()}`, {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    })
-    if (res.status === 401) throw new AuthExpired('Your Kick login expired. Please log in again.')
-    if (!res.ok) throw new AuthError(`Couldn't read your Kick subs (${res.status}).`)
-    const body = await res.json()
-    // Prefer a server-provided total when present.
-    if (body.total != null) return Number(body.total) || 0
-    const rows = body.data || []
-    total += rows.length
-    cursor = (body.pagination && body.pagination.next_cursor) || body.next_cursor || ''
-    if (!cursor) break
-  }
-  return total
+// Current subscriber total. Confirmed against the live API (see
+// scripts/kick-probe.mjs): GET /channels returns active_subscribers_count on the
+// authorized user's own channel — there is no separate subscriptions endpoint
+// (both /channels/subscriptions and /subscriptions 404). Only channel:read is
+// required. broadcasterId is unused (the endpoint is scoped to the token).
+async function getSubscriberCount(accessToken) {
+  const res = await fetch(`${API_BASE}/channels`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  })
+  if (res.status === 401) throw new AuthExpired('Your Kick login expired. Please log in again.')
+  if (!res.ok) throw new AuthError(`Couldn't read your Kick subs (${res.status}).`)
+  const rows = (await res.json()).data || []
+  return Number(rows[0] && rows[0].active_subscribers_count) || 0
 }
 
 module.exports = {
