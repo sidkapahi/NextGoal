@@ -36,7 +36,7 @@ async function startDeviceFlow() {
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: form({ client_id: CLIENT_ID, scopes: SCOPES }),
   })
-  if (!res.ok) throw new AuthError(`Couldn't start Twitch login (${res.status}).`)
+  if (!res.ok) throw new AuthError('Couldn’t start the Twitch login. Please try again in a moment.')
   return res.json() // { device_code, user_code, verification_uri, interval, expires_in }
 }
 
@@ -78,12 +78,12 @@ async function pollForToken(deviceCode, interval, expiresIn, shouldCancel) {
       wait += 2
       continue
     }
-    if (msg.includes('expired')) throw new AuthError('That code expired. Try again.')
+    if (msg.includes('expired')) throw new AuthError('Your Twitch login code expired. Please try again.')
     if (msg.includes('denied') || msg.includes('declined'))
-      throw new AuthError('Authorization was denied.')
-    throw new AuthError(`Login failed: ${msg || res.status}`)
+      throw new AuthError('Twitch login was cancelled or denied. Please try again.')
+    throw new AuthError('Twitch login didn’t go through. Please try again.')
   }
-  throw new AuthError('Login timed out. Try again.')
+  throw new AuthError('Twitch login timed out. Please try again.')
 }
 
 // Public clients pass NO secret. Refresh tokens are single-use, so persist the
@@ -101,7 +101,7 @@ async function refreshAccessToken(refreshToken, onNewRefreshToken) {
 
   if (res.status === 400 || res.status === 401)
     throw new AuthExpired('Your Twitch login expired. Please log in again.')
-  if (!res.ok) throw new AuthError(`Token refresh failed (${res.status}).`)
+  if (!res.ok) throw new AuthError('Couldn’t reach Twitch. Check your internet connection and try again.')
 
   const data = await res.json()
   if (data.refresh_token && onNewRefreshToken) onNewRefreshToken(data.refresh_token)
@@ -112,9 +112,9 @@ async function getCurrentUser(accessToken) {
   const res = await fetch(HELIX_USERS, {
     headers: { 'Client-Id': CLIENT_ID, Authorization: `Bearer ${accessToken}` },
   })
-  if (!res.ok) throw new AuthError(`Couldn't read your Twitch account (${res.status}).`)
+  if (!res.ok) throw new AuthError('Couldn’t read your Twitch account. Please try connecting again.')
   const data = (await res.json()).data || []
-  if (!data.length) throw new AuthError('Twitch returned no account info.')
+  if (!data.length) throw new AuthError('Twitch didn’t return your account info. Please try again.')
   return { id: data[0].id, name: data[0].display_name, avatar: data[0].profile_image_url || '' }
 }
 
@@ -126,7 +126,7 @@ async function getSubscriberCount(accessToken, broadcasterId) {
     headers: { 'Client-Id': CLIENT_ID, Authorization: `Bearer ${accessToken}` },
   })
   if (res.status === 401) throw new AuthExpired('Your Twitch login expired. Please log in again.')
-  if (!res.ok) throw new AuthError(`Couldn't read your sub count (${res.status}).`)
+  if (!res.ok) throw new AuthError('Couldn’t read your Twitch sub count right now. Please try again.')
   const data = await res.json()
   return Number(data.total) || 0
 }

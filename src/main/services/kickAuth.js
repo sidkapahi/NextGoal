@@ -85,7 +85,7 @@ async function login({ openUrl }) {
         code_verifier: verifier,
       }),
     })
-    if (!res.ok) throw new AuthError(`Kick login failed (${res.status}).`)
+    if (!res.ok) throw new AuthError('Kick login didn’t go through. Please try connecting again.')
     const data = await res.json()
     return { accessToken: data.access_token, refreshToken: data.refresh_token }
   } finally {
@@ -106,7 +106,7 @@ async function refreshAccessToken(refreshToken, onNewRefreshToken) {
   })
   if (res.status === 400 || res.status === 401)
     throw new AuthExpired('Your Kick login expired. Please log in again.')
-  if (!res.ok) throw new AuthError(`Kick token refresh failed (${res.status}).`)
+  if (!res.ok) throw new AuthError('Couldn’t reach Kick. Check your internet connection and try again.')
   const data = await res.json()
   if (data.refresh_token && onNewRefreshToken) onNewRefreshToken(data.refresh_token)
   return data.access_token
@@ -118,9 +118,9 @@ async function getCurrentChannel(accessToken) {
     headers: { Authorization: `Bearer ${accessToken}` },
   })
   if (res.status === 401) throw new AuthExpired('Your Kick login expired. Please log in again.')
-  if (!res.ok) throw new AuthError(`Couldn't read your Kick channel (${res.status}).`)
+  if (!res.ok) throw new AuthError('Couldn’t read your Kick channel. Please try connecting again.')
   const rows = (await res.json()).data || []
-  if (!rows.length) throw new AuthError('Kick returned no channel info.')
+  if (!rows.length) throw new AuthError('Kick didn’t return your channel info. Please try again.')
   const c = rows[0]
   return {
     id: String(c.broadcaster_user_id || c.id || ''),
@@ -139,7 +139,7 @@ async function getSubscriberCount(accessToken) {
     headers: { Authorization: `Bearer ${accessToken}` },
   })
   if (res.status === 401) throw new AuthExpired('Your Kick login expired. Please log in again.')
-  if (!res.ok) throw new AuthError(`Couldn't read your Kick subs (${res.status}).`)
+  if (!res.ok) throw new AuthError('Couldn’t read your Kick subs right now. Please try again.')
   const rows = (await res.json()).data || []
   return Number(rows[0] && rows[0].active_subscribers_count) || 0
 }

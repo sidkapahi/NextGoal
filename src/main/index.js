@@ -92,6 +92,8 @@ const providers = {
   },
 }
 
+const PLATFORM_LABEL = { twitch: 'Twitch', youtube: 'YouTube', kick: 'Kick' }
+
 const IDENTITY_KEYS = {
   twitch: ['broadcasterId', 'broadcasterName', 'broadcasterAvatar'],
   youtube: ['youtubeChannelId', 'youtubeChannelName', 'youtubeAvatar'],
@@ -189,7 +191,7 @@ function persistToken(platform, token) {
   if (!secure && !cfg.insecureTokenFallback) {
     cfg.insecureTokenFallback = true
     config.save(cfg)
-    send('warning', 'Your login is stored unencrypted (secure storage unavailable).')
+    send('warning', 'Heads up: this PC can’t encrypt your login, so it’s saved as plain text on your computer.')
   }
 }
 
@@ -228,7 +230,7 @@ async function pushOutput() {
     try {
       fs.writeFileSync(cfg.outputFile, text, 'utf8')
     } catch (e) {
-      send('status', `File write failed: ${e.message}`)
+      send('status', 'Couldn’t write the goal to your text file. Check the file path in Settings.')
     }
   }
   if (cfg.useObsWebsocket && cfg.obsSource) {
@@ -322,6 +324,9 @@ function startPoller(p) {
     pushOutput()
   })
   poller.on('error', (m) => send('status', m))
+  poller.on('neterror', () =>
+    send('status', `Couldn’t reach ${PLATFORM_LABEL[p]}. Check your internet connection and try again.`)
+  )
   // A non-retryable failure (e.g. the channel can't use the memberships API):
   // stop this source and surface the reason once, rather than retrying forever.
   poller.on('fatal', (m) => {

@@ -28,7 +28,8 @@ onMounted(() => {
   }))
   cleanups.push(window.ng.onStatus((m) => showToast(m, 'error')))
   cleanups.push(window.ng.onWarning((m) => showToast(m, 'warn')))
-  cleanups.push(window.ng.onAuthExpired((m) => showToast(m, 'error')))
+  // auth-expired now carries { platform, message }; fall back to a string.
+  cleanups.push(window.ng.onAuthExpired((m) => showToast((m && m.message) || m, 'error')))
 })
 
 onUnmounted(() => {

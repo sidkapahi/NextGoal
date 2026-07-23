@@ -95,7 +95,7 @@ async function login({ openUrl }) {
         code_verifier: verifier,
       }),
     })
-    if (!res.ok) throw new AuthError(`YouTube login failed (${res.status}).`)
+    if (!res.ok) throw new AuthError('YouTube login didn’t go through. Please try connecting again.')
     const data = await res.json()
     return { accessToken: data.access_token, refreshToken: data.refresh_token }
   } finally {
@@ -117,7 +117,7 @@ async function refreshAccessToken(refreshToken, onNewRefreshToken) {
 
   if (res.status === 400 || res.status === 401)
     throw new AuthExpired('Your YouTube login expired. Please log in again.')
-  if (!res.ok) throw new AuthError(`YouTube token refresh failed (${res.status}).`)
+  if (!res.ok) throw new AuthError('Couldn’t reach YouTube. Check your internet connection and try again.')
 
   const data = await res.json()
   if (data.refresh_token && onNewRefreshToken) onNewRefreshToken(data.refresh_token)
@@ -128,9 +128,9 @@ async function getCurrentChannel(accessToken) {
   const url = `${CHANNELS_URL}?part=snippet&mine=true`
   const res = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } })
   if (res.status === 401) throw new AuthExpired('Your YouTube login expired. Please log in again.')
-  if (!res.ok) throw new AuthError(`Couldn't read your YouTube channel (${res.status}).`)
+  if (!res.ok) throw new AuthError('Couldn’t read your YouTube channel. Please try connecting again.')
   const items = (await res.json()).items || []
-  if (!items.length) throw new AuthError('YouTube returned no channel info.')
+  if (!items.length) throw new AuthError('YouTube didn’t return your channel info. Please try again.')
   const c = items[0]
   const thumbs = (c.snippet && c.snippet.thumbnails) || {}
   return {
@@ -157,9 +157,9 @@ async function getMemberCount(accessToken) {
       throw new AuthExpired('Your YouTube login expired. Please log in again.')
     if (res.status === 403)
       throw new MembersUnavailable(
-        "YouTube: this channel can't use the memberships API (needs the Partner Program with channel memberships enabled)."
+        'YouTube: this channel is not a Partner and does not have the memberships feature, so member count is unavailable.'
       )
-    if (!res.ok) throw new AuthError(`Couldn't read your members (${res.status}).`)
+    if (!res.ok) throw new AuthError('Couldn’t read your YouTube members right now. Please try again.')
     const data = await res.json()
     total += (data.items || []).length
     pageToken = data.nextPageToken || ''

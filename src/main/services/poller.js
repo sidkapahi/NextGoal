@@ -9,7 +9,8 @@ const { EventEmitter } = require('events')
 //   'total'        — a numeric current total
 //   'auth-expired' — the login needs redoing (fetchTotal threw an AuthExpired)
 //   'fatal'        — a non-retryable failure (error had .fatal); caller stops us
-//   'error'        — a transient failure; polling keeps going
+//   'error'        — a transient failure with a ready-to-show message
+//   'neterror'     — a raw/network failure (no friendly message); caller phrases it
 //
 // It fires once immediately on start() so the first total lands without waiting
 // a full interval, and it never overlaps requests (a slow fetch is skipped, not
@@ -47,7 +48,8 @@ class Poller extends EventEmitter {
       if (this.stopped) return
       if (e && e.name === 'AuthExpired') this.emit('auth-expired', e.message)
       else if (e && e.fatal) this.emit('fatal', e.message)
-      else this.emit('error', String((e && e.message) || e))
+      else if (e && e.name === 'AuthError') this.emit('error', e.message) // already plain
+      else this.emit('neterror') // raw/network error — caller phrases it per platform
     } finally {
       this.busy = false
     }

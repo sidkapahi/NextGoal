@@ -59,14 +59,14 @@ function startLoopback(port = 0) {
           return new Promise((res2, rej2) => {
             const timer = setTimeout(() => {
               onResult = null
-              rej2(new Error('Login timed out. Try again.'))
+              rej2(new Error('The login window timed out. Please try connecting again.'))
             }, timeoutMs)
             onResult = ({ code, state, error }) => {
               clearTimeout(timer)
-              if (error) return rej2(new Error(`Authorization failed: ${error}`))
+              if (error) return rej2(new Error('The login was cancelled or denied. Please try again.'))
               if (expectedState && state !== expectedState)
-                return rej2(new Error('Login state mismatch. Try again.'))
-              if (!code) return rej2(new Error('No authorization code returned.'))
+                return rej2(new Error('Something went wrong during login. Please try connecting again.'))
+              if (!code) return rej2(new Error('The login didn’t complete. Please try connecting again.'))
               res2(code)
             }
           })
