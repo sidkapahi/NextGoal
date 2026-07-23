@@ -24,6 +24,10 @@ export default defineConfig({
   renderer: {
     root: resolve(__dirname, 'src/renderer'),
     build: {
+      // Emit assets as files rather than inlining. Inlined, URL-encoded SVG
+      // data URIs don't resolve when used as a CSS mask-image via a variable,
+      // which the recolorable +/- / gear / close / alert icons rely on.
+      assetsInlineLimit: 0,
       rollupOptions: {
         input: { index: resolve(__dirname, 'src/renderer/index.html') },
       },

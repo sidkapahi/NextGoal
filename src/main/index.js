@@ -28,6 +28,17 @@ let goal = 5
 let synced = false
 let loginCancel = false
 
+// Session goal values: a live, non-persisted copy of the goal settings the main
+// screen edits. Seeded from the saved defaults (cfg.startGoal / cfg.increment)
+// at launch; editing them on the main screen never rewrites those defaults.
+let sessStartGoal = 5
+let sessIncrement = 5
+
+// Manual goal override: the right +/- on the counter set the goal directly. A
+// manual goal sticks through incoming subs until the count reaches it (then it
+// rolls to the next milestone) or Reset clears it.
+let manualGoal = false
+
 app.on('window-all-closed', () => {
   // tray app: closing the window hides it to the tray, so this normally
   // won't fire; if it does, keep running so the tray icon stays alive.
@@ -45,7 +56,9 @@ app.whenReady().then(async () => {
   cfg = config.load()
   refreshToken = config.loadToken()
   obsPassword = config.loadObsPassword() || ''
-  goal = computeGoal(0, cfg.startGoal, cfg.increment)
+  sessStartGoal = cfg.startGoal
+  sessIncrement = cfg.increment
+  goal = computeGoal(0, sessStartGoal, sessIncrement)
 
   windows.createWindow({ preloadPath: path.join(__dirname, '../preload/index.js') })
 
@@ -103,11 +116,19 @@ function persistToken(token) {
 
 // ---- output: file + obs ----
 async function pushOutput() {
-  // When synced, the base is interval-aligned (nearest increment strictly above
-  // the count) instead of the configured starting goal.
-  goal = synced
-    ? computeGoal(count, cfg.increment, cfg.increment)
-    : computeGoal(count, cfg.startGoal, cfg.increment)
+  // A manual goal (set via the right +/-) is kept as-is until the count catches
+  // up to it; once count >= goal we roll to the next milestone and drop the
+  // override. Otherwise the goal is derived from the session goal values — and
+  // when synced, the base is interval-aligned (nearest increment strictly above
+  // the count) instead of the session starting goal.
+  if (manualGoal && count < goal) {
+    // keep the manually set goal
+  } else {
+    manualGoal = false
+    goal = synced
+      ? computeGoal(count, sessIncrement, sessIncrement)
+      : computeGoal(count, sessStartGoal, sessIncrement)
+  }
   const text = `${count}/${goal}`
   send('count-changed', { count, goal })
   updateTray({ tracking: !!tracker, count, goal })
@@ -151,8 +172,9 @@ function startTracking() {
     count = Math.max(0, count + n)
     pushOutput()
   })
-  tracker.on('connected', () => send('status', 'Live \u2014 listening for subs'))
-  tracker.on('status', (m) => send('status', m))
+  // Benign tracker info (gift announcements, "Reconnecting…") no longer has a UI
+  // surface in the redesign — the counter updates on its own — so it is dropped
+  // rather than shown. Only genuine errors reach the toast.
   tracker.on('error', (m) => send('status', m))
   tracker.on('auth-expired', (m) => {
     stopTracking()
@@ -178,6 +200,15 @@ function stopTracking() {
 
 function resetCount() {
   count = 0
+  manualGoal = false
+  pushOutput()
+}
+
+// Right +/- on the counter: set the goal directly. Never let it fall to or
+// below the current count. Flagged as manual so pushOutput keeps it.
+function adjustGoal(n) {
+  goal = Math.max(count + 1, goal + n)
+  manualGoal = true
   pushOutput()
 }
 
@@ -192,14 +223,36 @@ ipcMain.handle('get-state', () => ({
   synced,
   count,
   goal,
+  // Live session goal values (the main screen edits these, not the defaults).
+  startGoal: sessStartGoal,
+  increment: sessIncrement,
   obsPassword,
 }))
 
+// Persist a settings patch (Settings screen: default goal values, OBS host/port).
+// This does not touch the live session goal or recompute the current goal.
 ipcMain.handle('save-settings', (_e, patch) => {
   Object.assign(cfg, patch)
   config.save(cfg)
-  goal = computeGoal(count, cfg.startGoal, cfg.increment)
-  send('count-changed', { count, goal })
+  return cfg
+})
+
+// Main screen goal inputs: update the live session values (not persisted) and
+// recompute the current goal from them.
+ipcMain.handle('set-session-goal', (_e, { startGoal, increment } = {}) => {
+  if (startGoal != null) sessStartGoal = Math.max(1, Number(startGoal) || 1)
+  if (increment != null) sessIncrement = Math.max(1, Number(increment) || 1)
+  manualGoal = false
+  pushOutput()
+  return { startGoal: sessStartGoal, increment: sessIncrement, count, goal }
+})
+
+// Danger Zone > Reset to Defaults: restore the saved default goal settings to
+// the factory values. Leaves the live session, count and Twitch/OBS untouched.
+ipcMain.handle('reset-defaults', () => {
+  cfg.startGoal = config.DEFAULTS.startGoal
+  cfg.increment = config.DEFAULTS.increment
+  config.save(cfg)
   return cfg
 })
 
@@ -326,6 +379,7 @@ ipcMain.handle('adjust-count', (_e, n) => {
   count = Math.max(0, count + n)
   pushOutput()
 })
+ipcMain.handle('adjust-goal', (_e, n) => adjustGoal(n))
 
 // --- sync counter to current Twitch sub total ---
 ipcMain.handle('sync-sub-count', async (_e, on) => {
@@ -373,7 +427,10 @@ ipcMain.handle('reset-all-data', () => {
   obs = new OBSClient()
   count = 0
   synced = false
-  goal = computeGoal(0, cfg.startGoal, cfg.increment)
+  manualGoal = false
+  sessStartGoal = cfg.startGoal
+  sessIncrement = cfg.increment
+  goal = computeGoal(0, sessStartGoal, sessIncrement)
   updateTray({ tracking: false, count, goal })
   return true
 })

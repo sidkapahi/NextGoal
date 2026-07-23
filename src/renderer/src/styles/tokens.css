@@ -1,5 +1,15 @@
 /* NextGoal design tokens — dark first */
 
+/* Satoshi, self-hosted (variable, 300–900). Bundled so it always renders —
+   offline, no flash-of-fallback, no external request. */
+@font-face {
+  font-family: 'Satoshi';
+  src: url('../assets/fonts/Satoshi-Variable.woff2') format('woff2-variations');
+  font-weight: 300 900;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   /* neutrals */
   --n-0:#0B0C0F; --n-50:#111318; --n-100:#16181F; --n-150:#1D2028;
@@ -26,10 +36,12 @@
   --focus: 0 0 0 2px var(--bg), 0 0 0 4px var(--brand-500);
   --r-sm:4px; --r-md:6px; --r-lg:10px; --r-full:999px;
   --s-1:4px; --s-2:8px; --s-3:12px; --s-4:16px; --s-5:20px; --s-6:24px; --s-8:32px;
-  --ctrl:32px; --ctrl-sm:26px; --ctrl-lg:38px;
+  --ctrl:32px; --ctrl-sm:26px; --ctrl-lg:36px; --ctrl-input:36px;
   --dur:120ms; --ease:cubic-bezier(0.2,0,0,1);
 
-  --font:'Satoshi',-apple-system,'Segoe UI',sans-serif;
+  /* Satoshi is the brand face; bundle it locally (see assets/fonts) so it always
+     renders. Inter is the closest fallback (and the stand-in used in the mockups). */
+  --font:'Satoshi','Inter',-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
 }
 
 * { margin:0; padding:0; box-sizing:border-box; }
@@ -75,7 +87,7 @@ body {
 
 /* inputs */
 input:not([type]),input[type=text],input[type=password],input[type=number]{
-  height:var(--ctrl);padding:0 var(--s-3);width:100%;
+  height:var(--ctrl-input);padding:0 var(--s-3);width:100%;
   background:var(--surface-sunken);border:1px solid var(--border);
   border-radius:var(--r-md);color:var(--text);font:400 14px/1 var(--font);
   transition:border-color var(--dur) var(--ease);
@@ -92,3 +104,9 @@ input[type=number]{font-variant-numeric:tabular-nums;}
 .row{display:flex;align-items:center;gap:var(--s-3);}
 .col{display:flex;flex-direction:column;}
 .grow{flex:1 1 auto;}
+
+/* Masked icon: paints the SVG shape in currentColor so a single monochrome
+   asset can render neutral / brand / green etc. Component sets --icon (the
+   mask url) and the width/height. */
+.icon{display:inline-block;flex:0 0 auto;background:currentColor;
+  -webkit-mask:var(--icon) center / contain no-repeat;mask:var(--icon) center / contain no-repeat;}
