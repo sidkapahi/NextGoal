@@ -6,11 +6,10 @@ import StatusPill from '../components/StatusPill.vue'
 import GoalBoost from '../components/GoalBoost.vue'
 import ConfirmOverlay from '../components/ConfirmOverlay.vue'
 
-// INTERIM platform icons for the Total Subs card — reusing the bundled logos
-// until the new icon set lands (swap the three imports below when it does).
-import twitchLogo from '../assets/twitch.svg'
-import kickLogo from '../assets/kick.svg'
-import youtubeLogo from '../assets/youtube.svg'
+// Monochrome 16px platform glyphs for the Total Subs card.
+import twitchLogo from '../assets/ui-twitch.svg'
+import kickLogo from '../assets/ui-kick.svg'
+import youtubeLogo from '../assets/ui-youtube.svg'
 
 const router = useRouter()
 
