@@ -23,6 +23,10 @@ const platforms = ref({
   youtube: { connected: false, name: '', enabled: true },
   kick: { connected: false, name: '', enabled: true },
 })
+// Persistent per-platform warnings (e.g. a YouTube channel that isn't a Partner
+// so member count is unavailable). Shown here rather than as a red toast on the
+// main screen. Keyed by platform id → message | null.
+const warnings = ref({ twitch: null, youtube: null, kick: null })
 // device-code prompt currently showing (twitch/youtube); kick uses the browser
 const activeCode = ref({ platform: '', userCode: '', verifyUri: '' })
 const meta = (id) => PLATFORMS.find((p) => p.id === id)
@@ -54,6 +58,7 @@ onMounted(async () => {
   for (const p of s.platforms || []) {
     platforms.value[p.id] = { connected: p.connected, name: p.name, enabled: p.enabled }
   }
+  if (s.warnings) warnings.value = { ...warnings.value, ...s.warnings }
   defStartGoal.value = s.cfg.startGoal
   defIncrement.value = s.cfg.increment
   obsHost.value = s.cfg.obsHost
@@ -69,6 +74,9 @@ onMounted(async () => {
       if (activeCode.value.platform === platform)
         activeCode.value = { platform: '', userCode: '', verifyUri: '' }
     })
+  )
+  cleanups.push(
+    window.ng.onPlatformWarnings((w) => (warnings.value = { ...warnings.value, ...w }))
   )
 })
 
@@ -198,6 +206,8 @@ function toggleEnabled(id) {
       <button v-for="p in PLATFORMS" :key="p.id" class="tab" :class="{ active: tab === p.id }" @click="tab = p.id">
         {{ p.label }}
         <span v-if="platforms[p.id].enabled && !platforms[p.id].connected" class="tab-alert icon"
+              :style="{ '--icon': `url(${alertIcon})` }"></span>
+        <span v-else-if="warnings[p.id]" class="tab-alert tab-alert--warn icon"
               :style="{ '--icon': `url(${alertIcon})` }"></span>
       </button>
     </nav>
@@ -351,6 +361,10 @@ function toggleEnabled(id) {
             <img :src="meta(tab).logo" width="16" height="16" alt="" />
             Logout
           </button>
+          <div v-if="warnings[tab]" class="warn-banner">
+            <span class="warn-ico icon" :style="{ '--icon': `url(${alertIcon})` }"></span>
+            <span class="t-caption">{{ warnings[tab] }}</span>
+          </div>
         </template>
         <template v-else>
           <div class="col" style="gap:var(--s-2)">
@@ -394,6 +408,15 @@ function toggleEnabled(id) {
 .tab:hover { color: var(--text); }
 .tab.active { background: var(--surface-raised); border-color: var(--border); color: var(--text); }
 .tab-alert { width: 15px; height: 15px; color: var(--status-error); }
+.tab-alert--warn { color: var(--warn-500, var(--status-warn)); }
+
+/* Amber, persistent per-platform warning (e.g. YouTube memberships unavailable). */
+.warn-banner { display: flex; align-items: flex-start; gap: var(--s-2); width: 100%;
+  padding: var(--s-3) var(--s-4); border: 1px solid var(--warn-500, var(--status-warn));
+  border-radius: var(--r-md); background: color-mix(in srgb, var(--warn-500, var(--status-warn)) 12%, transparent); }
+.warn-banner .warn-ico { flex: 0 0 auto; width: 18px; height: 18px; margin-top: 1px;
+  color: var(--warn-500, var(--status-warn)); }
+.warn-banner .t-caption { color: var(--warn-500, var(--status-warn)); }
 
 .body { flex: 1; display: flex; flex-direction: column; padding: var(--s-6) 40px; gap: var(--s-6); min-height: 0; overflow-y: auto; }
 .section { display: flex; flex-direction: column; gap: var(--s-4); width: 100%; }

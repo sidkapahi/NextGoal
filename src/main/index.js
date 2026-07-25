@@ -192,6 +192,23 @@ function setObsOnline(on) {
   if (on === obsOnline) return
   obsOnline = on
   send('obs-status', { online: obsOnline })
+  // OBS just came back — push the current count so the source catches up to
+  // whatever the counter moved to while OBS was offline.
+  if (on && cfg.useObsWebsocket && cfg.obsSource) pushOutput()
+}
+
+// Persistent, non-retryable per-platform warnings (e.g. a YouTube channel that
+// isn't a Partner, so member count is unavailable). Surfaced in Settings rather
+// than as a transient red toast on the main screen. Cleared on logout / disable
+// or once the platform reports a total successfully again.
+const platformWarnings = { twitch: null, youtube: null, kick: null }
+function setPlatformWarning(p, message) {
+  if (platformWarnings[p] === message) return
+  platformWarnings[p] = message || null
+  send('platform-warnings', { ...platformWarnings })
+}
+function clearPlatformWarning(p) {
+  setPlatformWarning(p, null)
 }
 
 // All-time subscriber/member totals per platform, fetched ON DEMAND only (no
@@ -227,8 +244,12 @@ async function refreshTotals() {
       if (sources[p].enabled && isConnected(p)) {
         try {
           allTimeTotals[p] = Math.max(0, Number(await providers[p].getTotal()) || 0)
-        } catch {
-          // best-effort — never throw out of here
+          clearPlatformWarning(p)
+        } catch (e) {
+          // best-effort — never throw out of here. A non-retryable failure
+          // (e.g. YouTube memberships unavailable) is surfaced as a persistent
+          // Settings warning rather than blanking the card.
+          if (e && e.fatal) setPlatformWarning(p, e.message)
         }
       } else {
         allTimeTotals[p] = null
@@ -264,6 +285,12 @@ function recomputeCount() {
   count = combinedCount(sources, synced, manualOffset)
 }
 
+// Subs gained this session, independent of the active mode — so the "Current
+// Session" card shows its own figure even when "Total Subs" is the active source.
+function sessionCount() {
+  return combinedCount(sources, false, manualOffset)
+}
+
 function platformsSnapshot() {
   return PLATFORMS.map((p) => ({
     id: p,
@@ -288,7 +315,7 @@ async function pushOutput() {
       : computeGoal(count, sessStartGoal, sessIncrement)
   }
   const text = `${count}/${goal}`
-  send('count-changed', { count, goal, platforms: platformsSnapshot() })
+  send('count-changed', { count, goal, synced, session: sessionCount(), platforms: platformsSnapshot() })
   updateTray({ tracking, count, goal })
 
   if (cfg.writeToFile && cfg.outputFile) {
@@ -303,8 +330,10 @@ async function pushOutput() {
       if (!obs.connected)
         await obs.connect({ host: cfg.obsHost, port: cfg.obsPort, password: obsPassword })
       await obs.setText(cfg.obsSource, text)
-    } catch (e) {
-      send('status', e.message)
+    } catch {
+      // OBS being offline is not an error the user needs a toast for — the
+      // status pill already shows "OBS Offline". We push the current value again
+      // automatically when OBS reconnects (see setObsOnline), so it catches up.
     }
   }
 }
@@ -396,7 +425,7 @@ function startPoller(p) {
   // stop this source and surface the reason once, rather than retrying forever.
   poller.on('fatal', (m) => {
     stopSourceDriver(p)
-    send('status', m)
+    setPlatformWarning(p, m)
   })
   poller.on('auth-expired', (m) => handleAuthExpired(p, m))
   poller.start()
@@ -472,6 +501,7 @@ ipcMain.handle('get-state', () => ({
   tracking,
   synced,
   count,
+  session: sessionCount(),
   goal,
   startGoal: sessStartGoal,
   increment: sessIncrement,
@@ -481,6 +511,8 @@ ipcMain.handle('get-state', () => ({
   platforms: platformsSnapshot(),
   // All-time subscriber totals (Total Subs card) — refreshed on demand.
   totals: totalsSnapshot(),
+  // Persistent per-platform warnings (shown in Settings, not as a toast).
+  warnings: { ...platformWarnings },
 }))
 
 ipcMain.handle('save-settings', (_e, patch) => {
@@ -532,6 +564,7 @@ ipcMain.handle('set-platform-enabled', (_e, { platform, on } = {}) => {
       stopSourceDriver(platform)
     }
   }
+  if (!on) clearPlatformWarning(platform)
   recomputeCount()
   pushOutput()
   // "Add in total" gates which platforms count toward the Total Subs card;
@@ -628,6 +661,7 @@ function logoutPlatform(platform) {
   config.save(cfg)
   sources[platform].connected = false
   allTimeTotals[platform] = null
+  clearPlatformWarning(platform)
   recomputeCount()
   pushOutput()
   send('totals-changed', totalsSnapshot())

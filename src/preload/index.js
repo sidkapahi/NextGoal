@@ -56,6 +56,7 @@ contextBridge.exposeInMainWorld('ng', {
   onTrackingChanged: (cb) => on('tracking-changed', cb),
   onObsStatus: (cb) => on('obs-status', cb),
   onTotalsChanged: (cb) => on('totals-changed', cb),
+  onPlatformWarnings: (cb) => on('platform-warnings', cb),
   onStatus: (cb) => on('status', cb),
   onWarning: (cb) => on('warning', cb),
   onNeedLogin: (cb) => on('need-login', cb),

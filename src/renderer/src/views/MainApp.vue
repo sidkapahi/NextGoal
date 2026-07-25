@@ -22,8 +22,10 @@ const PLATFORM_META = {
 const ICON_ORDER = ['twitch', 'kick', 'youtube']
 
 const count = ref(0)
+const session = ref(0)
 const goal = ref(5)
 const tracking = ref(false)
+const synced = ref(false)
 const increment = ref(5)
 const defaultIncrement = ref(5)
 const obsOnline = ref(true) // optimistic until the open-probe reports back
@@ -43,8 +45,10 @@ onMounted(async () => {
   if (!window.ng) return
   const s = await window.ng.getState()
   count.value = s.count
+  session.value = s.session ?? s.count
   goal.value = s.goal
   tracking.value = s.tracking
+  synced.value = !!s.synced
   increment.value = s.increment
   defaultIncrement.value = s.cfg?.increment ?? s.increment
   obsSource.value = s.cfg?.obsSource || ''
@@ -52,9 +56,11 @@ onMounted(async () => {
   if (s.totals) totals.value = s.totals
 
   cleanups.push(
-    window.ng.onCountChanged(({ count: c, goal: g, platforms: p }) => {
+    window.ng.onCountChanged(({ count: c, goal: g, synced: sy, session: se, platforms: p }) => {
       count.value = c
       goal.value = g
+      if (typeof sy === 'boolean') synced.value = sy
+      if (typeof se === 'number') session.value = se
       if (p) platforms.value = p
     })
   )
@@ -90,11 +96,17 @@ const health = computed(() => {
   if (!obsOnline.value) return { label: 'OBS Offline', tone: 'warn' }
   return { label: 'Ready', tone: 'ok' }
 })
-const canStart = computed(() => tracking.value || health.value.tone === 'ok')
+// OBS being offline (or no source picked) no longer blocks Start — the counter
+// runs and OBS catches up when it reconnects. Only a connected channel is
+// required.
+const canStart = computed(() => tracking.value || anyConnected.value)
 
 // ---- subs cards ----
+// Which card drives the counter: 'total' when synced to all-time totals,
+// otherwise 'session' (subs gained this session).
+const activeCard = computed(() => (synced.value ? 'total' : 'session'))
 const sessionDisplay = computed(() =>
-  tracking.value || count.value > 0 ? String(count.value) : '-'
+  tracking.value || session.value > 0 ? String(session.value) : '-'
 )
 
 // Platforms whose total counts (connected + "Add in total"), in icon order.
@@ -136,6 +148,16 @@ function doReset() {
   window.ng.resetCount()
   confirmingReset.value = false
 }
+// Pick which source drives the counter. Selecting Total Subs syncs to the live
+// all-time totals; selecting Current Session counts subs gained from now. The
+// backend returns the resulting `synced` state (and pushes count-changed), so a
+// failed sync (e.g. no platform connected) simply leaves the selection as-is.
+async function selectCard(card) {
+  if (activeCard.value === card) return
+  const res = await window.ng.syncSubCount(card === 'total')
+  if (res && typeof res.synced === 'boolean') synced.value = res.synced
+}
+
 function openSettings() {
   router.push('/settings')
 }
@@ -183,15 +205,29 @@ function openSettings() {
       <section class="subs">
         <span class="subs-label">SUBS</span>
         <div class="subs-row">
-          <div class="sub-card">
+          <button
+            type="button"
+            class="sub-card"
+            :class="{ active: activeCard === 'session' }"
+            :aria-pressed="activeCard === 'session'"
+            @click="selectCard('session')"
+          >
             <div class="sub-top">
               <span class="sub-title">Current Session</span>
-              <span v-if="tracking" class="active">ACTIVE</span>
             </div>
-            <span class="sub-value" :class="{ live: tracking }">{{ sessionDisplay }}</span>
-          </div>
+            <div class="sub-bottom">
+              <span class="sub-value" :class="{ live: tracking && activeCard === 'session' }">{{ sessionDisplay }}</span>
+              <span v-if="activeCard === 'session'" class="active">ACTIVE</span>
+            </div>
+          </button>
 
-          <div class="sub-card total">
+          <button
+            type="button"
+            class="sub-card total"
+            :class="{ active: activeCard === 'total' }"
+            :aria-pressed="activeCard === 'total'"
+            @click="selectCard('total')"
+          >
             <div class="sub-top">
               <span class="sub-title">{{ totalLabel }}</span>
               <div v-if="includedIcons.length" class="icons">
@@ -209,8 +245,11 @@ function openSettings() {
                 />
               </div>
             </div>
-            <span class="sub-value">{{ totalValue }}</span>
-          </div>
+            <div class="sub-bottom">
+              <span class="sub-value" :class="{ live: tracking && activeCard === 'total' }">{{ totalValue }}</span>
+              <span v-if="activeCard === 'total'" class="active">ACTIVE</span>
+            </div>
+          </button>
         </div>
       </section>
     </div>
@@ -283,12 +322,19 @@ function openSettings() {
 .subs-label { font-size: 13px; line-height: 1.4; font-weight: 500; color: var(--text-secondary); }
 .subs-row { display: flex; gap: var(--s-3); align-items: stretch; }
 .sub-card { background: var(--surface-sunken); border: 1px solid var(--border); border-radius: var(--r-lg);
-  padding: 10px var(--s-4); display: flex; flex-direction: column; gap: var(--s-2); flex: 1 1 0; min-width: 0; }
+  padding: 10px var(--s-4); display: flex; flex-direction: column; gap: var(--s-2); flex: 1 1 0; min-width: 0;
+  font-family: inherit; text-align: left; cursor: pointer; appearance: none;
+  transition: border-color var(--dur) var(--ease), background var(--dur) var(--ease); }
 .sub-card.total { flex: 0 0 184px; }
+.sub-card:hover { border-color: var(--border-strong, var(--text-muted)); }
+.sub-card.active { border-color: var(--status-ok); }
+.sub-card:focus-visible { outline: none; box-shadow: var(--focus); }
 .sub-top { display: flex; align-items: center; gap: var(--s-2); min-height: 20px; }
 .sub-title { flex: 1 1 auto; font-size: 13px; line-height: 1.4; font-weight: 500; color: var(--text-secondary);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.active { font-size: 11px; line-height: 1.3; font-weight: 500; letter-spacing: .06em; color: var(--status-ok); }
+/* ACTIVE sits on the value row, aligned to the number (not the title). */
+.sub-bottom { display: flex; align-items: baseline; justify-content: space-between; gap: var(--s-2); }
+.active { flex: 0 0 auto; font-size: 11px; line-height: 1.3; font-weight: 500; letter-spacing: .06em; color: var(--status-ok); }
 .sub-value { font-size: 20px; line-height: 1.3; font-weight: 500; letter-spacing: -0.2px; color: var(--text);
   font-variant-numeric: tabular-nums; }
 .sub-value.live { color: var(--status-ok); }
