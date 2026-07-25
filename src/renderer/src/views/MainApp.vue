@@ -13,6 +13,25 @@ import youtubeLogo from '../assets/ui-youtube.svg'
 
 const router = useRouter()
 
+// Shrink a value's font-size until it fits its box, so a long number (e.g. a
+// large all-time total) never overflows the card. Re-runs whenever the bound
+// text changes.
+const vFit = {
+  mounted: (el) => fitText(el),
+  updated: (el) => fitText(el),
+}
+function fitText(el) {
+  requestAnimationFrame(() => {
+    el.style.fontSize = ''
+    let size = parseFloat(getComputedStyle(el).fontSize)
+    let guard = 40
+    while (el.scrollWidth > el.clientWidth + 0.5 && size > 10 && guard-- > 0) {
+      size -= 1
+      el.style.fontSize = `${size}px`
+    }
+  })
+}
+
 const PLATFORM_META = {
   twitch: { label: 'Twitch', logo: twitchLogo },
   kick: { label: 'Kick', logo: kickLogo },
@@ -216,7 +235,7 @@ function openSettings() {
               <span class="sub-title">Current Session</span>
             </div>
             <div class="sub-bottom">
-              <span class="sub-value" :class="{ live: tracking && activeCard === 'session' }">{{ sessionDisplay }}</span>
+              <span v-fit class="sub-value" :class="{ live: tracking && activeCard === 'session' }">{{ sessionDisplay }}</span>
               <span v-if="activeCard === 'session'" class="active">ACTIVE</span>
             </div>
           </button>
@@ -246,7 +265,7 @@ function openSettings() {
               </div>
             </div>
             <div class="sub-bottom">
-              <span class="sub-value" :class="{ live: tracking && activeCard === 'total' }">{{ totalValue }}</span>
+              <span v-fit class="sub-value" :class="{ live: tracking && activeCard === 'total' }">{{ totalValue }}</span>
               <span v-if="activeCard === 'total'" class="active">ACTIVE</span>
             </div>
           </button>
@@ -300,7 +319,9 @@ function openSettings() {
 .counter { display: flex; align-items: center; justify-content: center; gap: var(--s-1);
   padding: var(--s-4) var(--s-6); }
 .num-col { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 28px; }
-.num { font-size: 128px; line-height: 1; font-weight: 700; letter-spacing: -1.1px; font-variant-numeric: tabular-nums; }
+/* line-height 0.73 trims the box to the glyph (~94px), so the 28px gap to the
+   +/- reads as the real distance to the number (not to the font's leading). */
+.num { font-size: 128px; line-height: 0.73; font-weight: 700; letter-spacing: -1.1px; font-variant-numeric: tabular-nums; }
 .num.count { color: var(--text); }
 .num.count.live { color: var(--status-ok); }
 .num.goal { color: var(--primary); }
@@ -311,8 +332,10 @@ function openSettings() {
   transition: transform var(--dur) var(--ease), opacity var(--dur) var(--ease); }
 .pm svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 2;
   stroke-linecap: round; stroke-linejoin: round; }
+/* Both +/- use text/primary — they don't take on the goal (purple) or live
+   count (green) colors; only the numbers themselves do. */
 .pm--count { color: var(--text); }
-.pm--goal { color: var(--primary); }
+.pm--goal { color: var(--text); }
 .pm:hover { opacity: .8; }
 .pm:active { transform: scale(.92); }
 .pm:focus-visible { outline: none; box-shadow: var(--focus); border-radius: var(--r-full); }
@@ -325,17 +348,18 @@ function openSettings() {
   padding: 10px var(--s-4); display: flex; flex-direction: column; gap: var(--s-2); flex: 1 1 0; min-width: 0;
   font-family: inherit; text-align: left; cursor: pointer; appearance: none;
   transition: border-color var(--dur) var(--ease), background var(--dur) var(--ease); }
-.sub-card.total { flex: 0 0 184px; }
-.sub-card:hover { border-color: var(--border-strong, var(--text-muted)); }
+/* Both cards are equal width regardless of their text (Figma: 184px each). */
 .sub-card.active { border-color: var(--status-ok); }
 .sub-card:focus-visible { outline: none; box-shadow: var(--focus); }
 .sub-top { display: flex; align-items: center; gap: var(--s-2); min-height: 20px; }
 .sub-title { flex: 1 1 auto; font-size: 13px; line-height: 1.4; font-weight: 500; color: var(--text-secondary);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* ACTIVE sits on the value row, aligned to the number (not the title). */
-.sub-bottom { display: flex; align-items: baseline; justify-content: space-between; gap: var(--s-2); }
+.sub-bottom { display: flex; align-items: baseline; justify-content: space-between; gap: var(--s-2); min-width: 0; }
 .active { flex: 0 0 auto; font-size: 11px; line-height: 1.3; font-weight: 500; letter-spacing: .06em; color: var(--status-ok); }
-.sub-value { font-size: 20px; line-height: 1.3; font-weight: 500; letter-spacing: -0.2px; color: var(--text);
+/* Value shrinks to fit (v-fit) when the number is long, rather than overflowing. */
+.sub-value { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden;
+  font-size: 20px; line-height: 1.3; font-weight: 500; letter-spacing: -0.2px; color: var(--text);
   font-variant-numeric: tabular-nums; }
 .sub-value.live { color: var(--status-ok); }
 .icons { display: flex; align-items: center; gap: var(--s-1); flex: 0 0 auto; }

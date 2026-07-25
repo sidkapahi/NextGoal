@@ -774,19 +774,25 @@ ipcMain.handle('sync-sub-count', async (_e, on) => {
   }
   const active = PLATFORMS.filter((p) => participates(sources[p]))
   if (!active.length) return { ok: false, error: 'Connect a platform first.' }
-  try {
-    manualOffset = 0
-    for (const p of active) {
+  // Fetch each platform independently: one platform failing (e.g. a YouTube
+  // channel with memberships unavailable) must not abort the whole sync. A
+  // non-retryable failure becomes a persistent Settings warning; that platform
+  // simply contributes 0 to the synced total.
+  manualOffset = 0
+  for (const p of active) {
+    try {
       const total = await providers[p].getTotal()
       sources[p].total = Math.max(0, Number(total) || 0)
+      clearPlatformWarning(p)
+    } catch (e) {
+      sources[p].total = 0
+      if (e && e.fatal) setPlatformWarning(p, e.message)
     }
-    synced = true
-    recomputeCount()
-    pushOutput()
-    return { ok: true, synced: true, count, goal }
-  } catch (e) {
-    return { ok: false, error: e.message }
   }
+  synced = true
+  recomputeCount()
+  pushOutput()
+  return { ok: true, synced: true, count, goal }
 })
 
 // --- test sub (onboarding + testing) ---
