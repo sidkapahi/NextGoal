@@ -118,12 +118,25 @@ class OBSClient {
 }
 
 function friendly(e) {
-  const m = String((e && e.message) || e).toLowerCase()
-  if (m.includes('refus') || m.includes('connect') || m.includes('timeout'))
-    return 'Can\u2019t reach OBS. Make sure OBS is running and Tools > WebSocket Server Settings > Enable is on.'
+  const raw = String((e && e.message) || e || '').trim()
+  const m = raw.toLowerCase()
   if (m.includes('auth') || m.includes('password'))
     return 'OBS rejected the password. Check Tools > WebSocket Server Settings > Show Connect Info.'
-  return String((e && e.message) || e)
+  // Empty/unhelpful messages (a closed OBS often throws a message-less error that
+  // stringifies to just "Error") and any connection-ish failure map to the same
+  // clear guidance, so the toast never shows a bare "Error".
+  if (
+    !raw ||
+    m === 'error' ||
+    m.includes('refus') ||
+    m.includes('connect') ||
+    m.includes('timeout') ||
+    m.includes('econn') ||
+    m.includes('closed') ||
+    m.includes('websocket')
+  )
+    return 'Can\u2019t reach OBS. Make sure OBS is open and Tools > WebSocket Server Settings > Enable is on.'
+  return `OBS error: ${raw}`
 }
 
 module.exports = { OBSClient, OBSError }

@@ -82,8 +82,7 @@ class SubTracker extends EventEmitter {
       res = await doPost()
     }
     if (!res.ok) {
-      const body = await res.text()
-      throw new Error(`Couldn't subscribe to ${type}: ${body}`)
+      throw new Error('Couldn’t start counting Twitch subs. Please try reconnecting Twitch.')
     }
   }
 
@@ -131,7 +130,9 @@ class SubTracker extends EventEmitter {
       this.reconnectTimer = setTimeout(() => this._connect(EVENTSUB_URL), 5000)
     })
 
-    this.ws.on('error', (err) => this.emit('error', String(err.message || err)))
+    this.ws.on('error', () =>
+      this.emit('error', 'Lost the connection to Twitch. It will reconnect automatically.')
+    )
   }
 
   _handleNotification(msg) {

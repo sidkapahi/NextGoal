@@ -15,6 +15,15 @@ const synced = ref(false)
 const startGoal = ref(5)
 const increment = ref(5)
 
+// Per-platform breakdown of the combined count.
+const SHORT = { twitch: 'TW', youtube: 'YT', kick: 'KK' }
+const platforms = ref([])
+const breakdown = computed(() =>
+  platforms.value
+    .filter((p) => p.connected && p.enabled)
+    .map((p) => ({ id: p.id, label: SHORT[p.id] || p.id, value: p.contribution }))
+)
+
 const cleanups = []
 
 onMounted(async () => {
@@ -26,12 +35,16 @@ onMounted(async () => {
   synced.value = s.synced
   startGoal.value = s.startGoal
   increment.value = s.increment
+  platforms.value = s.platforms || []
 
-  cleanups.push(window.ng.onCountChanged(({ count: c, goal: g }) => {
+  cleanups.push(window.ng.onCountChanged(({ count: c, goal: g, platforms: p }) => {
     count.value = c; goal.value = g
+    if (p) platforms.value = p
   }))
   cleanups.push(window.ng.onTrackingChanged((v) => (tracking.value = v)))
-  cleanups.push(window.ng.onAuthExpired(() => { tracking.value = false }))
+  // One platform's auth expiring doesn't necessarily stop tracking — the main
+  // process emits tracking-changed if everything stops, so just ignore here.
+  cleanups.push(window.ng.onAuthExpired(() => {}))
 })
 
 onUnmounted(() => cleanups.forEach((fn) => fn && fn()))
@@ -127,6 +140,15 @@ function openSettings() {
         </div>
       </div>
 
+      <!-- PER-PLATFORM BREAKDOWN (only when more than one source counts) -->
+      <div class="breakdown" v-if="breakdown.length > 1">
+        <span v-for="(b, i) in breakdown" :key="b.id" class="bd-item">
+          <span class="bd-label">{{ b.label }}</span>
+          <span class="bd-value">{{ b.value }}</span>
+          <span v-if="i < breakdown.length - 1" class="bd-sep">·</span>
+        </span>
+      </div>
+
       <!-- SYNC -->
       <label class="sync" :class="{ on: synced }">
         <input type="checkbox" :checked="synced" @change="onSync" />
@@ -197,6 +219,14 @@ function openSettings() {
 .pm:hover { opacity: .8; }
 .pm:active { transform: scale(.92); }
 .pm:focus-visible { outline: none; box-shadow: var(--focus); border-radius: var(--r-full); }
+
+/* per-platform breakdown */
+.breakdown { display: flex; align-items: center; justify-content: center; gap: var(--s-2);
+  color: var(--text-muted); font-size: 13px; }
+.bd-item { display: inline-flex; align-items: center; gap: var(--s-1); }
+.bd-label { font-weight: 600; letter-spacing: .3px; }
+.bd-value { color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+.bd-sep { margin-left: var(--s-1); color: var(--border-strong); }
 
 .sync { display: flex; align-items: center; justify-content: center; gap: var(--s-2); cursor: pointer;
   color: var(--text-secondary); }

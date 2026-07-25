@@ -15,10 +15,13 @@ contextBridge.exposeInMainWorld('ng', {
   setSessionGoal: (patch) => ipcRenderer.invoke('set-session-goal', patch),
   resetDefaults: () => ipcRenderer.invoke('reset-defaults'),
 
-  // twitch
-  loginStart: () => ipcRenderer.invoke('twitch-login-start'),
-  loginCancel: () => ipcRenderer.invoke('twitch-login-cancel'),
-  logout: () => ipcRenderer.invoke('twitch-logout'),
+  // platform auth (twitch | youtube | kick). Defaults to twitch so existing
+  // call sites keep working.
+  loginStart: (platform = 'twitch') => ipcRenderer.invoke('login-start', platform),
+  loginCancel: (platform = 'twitch') => ipcRenderer.invoke('login-cancel', platform),
+  logout: (platform = 'twitch') => ipcRenderer.invoke('logout', platform),
+  setPlatformEnabled: (platform, on) =>
+    ipcRenderer.invoke('set-platform-enabled', { platform, on }),
 
   // obs
   obsAutoDetect: () => ipcRenderer.invoke('obs-auto-detect'),
@@ -51,8 +54,9 @@ contextBridge.exposeInMainWorld('ng', {
   onWarning: (cb) => on('warning', cb),
   onNeedLogin: (cb) => on('need-login', cb),
   onAuthExpired: (cb) => on('auth-expired', cb),
-  onTwitchLoginOk: (cb) => on('twitch-login-ok', cb),
-  onTwitchLoginFailed: (cb) => on('twitch-login-failed', cb),
+  // Platform login result events carry { platform, name, avatar } / { platform, message }.
+  onLoginOk: (cb) => on('login-ok', cb),
+  onLoginFailed: (cb) => on('login-failed', cb),
   onUpdateAvailable: (cb) => on('update-available', cb),
   onUpdateDownloaded: (cb) => on('update-downloaded', cb),
 })

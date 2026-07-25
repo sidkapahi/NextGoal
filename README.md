@@ -1,6 +1,15 @@
 # NextGoal
 
-An auto-incrementing Twitch sub goal for OBS. Starts at 0 each stream (or syncs to your current sub count); every time you hit the goal it raises itself by your chosen increment. Built with Electron + Vue, runs as a free-form desktop window with a tray icon for quick show/hide, feeds OBS over obs-websocket (no plugin) with a text-file fallback.
+An auto-incrementing sub/member goal for OBS that **combines Twitch subs,
+YouTube members, and Kick subs into one counter**. Starts at 0 each stream (or
+syncs to your current totals); every time you hit the goal it raises itself by
+your chosen increment. Built with Electron + Vue, runs as a free-form desktop
+window with a tray icon for quick show/hide, feeds OBS over obs-websocket (no
+plugin) with a text-file fallback.
+
+Twitch counts in real time (EventSub); YouTube and Kick are polled for their
+current totals on an interval (default 60s), since neither offers a practical
+real-time feed for a desktop app.
 
 ## Run it
 
@@ -9,16 +18,39 @@ npm install
 npm run dev          # launches Electron with hot reload
 ```
 
-For local dev, Twitch login needs a client ID:
+For local dev, each platform login needs its own client credentials, passed as
+env vars. Twitch is required; YouTube and Kick are optional (leave them out and
+that platform just can't be linked):
 
 ```bash
-# PowerShell
-$env:TWITCH_CLIENT_ID="your_id"; npm run dev
 # bash
-TWITCH_CLIENT_ID=your_id npm run dev
+TWITCH_CLIENT_ID=... \
+YOUTUBE_CLIENT_ID=... YOUTUBE_CLIENT_SECRET=... \
+KICK_CLIENT_ID=... KICK_CLIENT_SECRET=... \
+npm run dev
 ```
 
-The client ID is public info (it ships in the built app). Register a **Public** client app at [dev.twitch.tv/console/apps](https://dev.twitch.tv/console/apps) with redirect `http://localhost` and category Broadcasting Suite.
+- **Twitch** — register a **Public** client at
+  [dev.twitch.tv/console/apps](https://dev.twitch.tv/console/apps), redirect
+  `http://localhost`, category Broadcasting Suite. Scope: `channel:read:subscriptions`.
+- **YouTube** — a Google Cloud project with **YouTube Data API v3** enabled and
+  an OAuth client of type **Desktop app** (Authorization Code + PKCE via a
+  loopback redirect — Google auto-allows `http://localhost`, no redirect to
+  register). Add the `youtube.readonly` and `youtube.channel-memberships.creator`
+  scopes; the memberships one is **sensitive**, so keep the app in *Testing* mode
+  and add your channel's Google account as a **test user** to use it without full
+  verification. The channel must be in the Partner Program with memberships on.
+  Desktop-app clients carry a client secret; for an installed app Google treats
+  it as non-confidential (it ships in the binary).
+- **Kick** — a Kick Developer App (OAuth 2.1 + PKCE, a **confidential** client:
+  client ID **and secret**). Register `http://localhost` as an allowed redirect
+  and request the `user:read`, `channel:read`, and `events:subscribe` scopes.
+  Kick has no "read subscriber count" scope — sub data comes through the events
+  subscription, so confirm the counting approach against the
+  [Kick dev docs](https://github.com/KickEngineering/KickDevDocs).
+
+Client IDs are public info (they ship in the built app). The YouTube and Kick
+secrets are the installed-app kind treated as non-confidential.
 
 ## Build an installer
 
@@ -31,7 +63,9 @@ Produces a one-click per-user installer in `release/`. The build injects your cl
 
 ## Release (auto-update)
 
-Add `TWITCH_CLIENT_ID` as a **repository secret**, then:
+Add the client credentials as **repository secrets** (`TWITCH_CLIENT_ID` is
+required; `YOUTUBE_CLIENT_ID`, `YOUTUBE_CLIENT_SECRET`, and `KICK_CLIENT_ID` are
+optional — the build injects whichever are present), then:
 
 ```bash
 # bump version in package.json first

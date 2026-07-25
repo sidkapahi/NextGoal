@@ -5,9 +5,26 @@ const fs = require('fs')
 const path = require('path')
 
 const DEFAULTS = {
+  // Twitch identity (kept under the original key names for back-compat with
+  // existing installs).
   broadcasterId: '',
   broadcasterName: '',
   broadcasterAvatar: '',
+  // YouTube identity
+  youtubeChannelId: '',
+  youtubeChannelName: '',
+  youtubeAvatar: '',
+  // Kick identity
+  kickBroadcasterId: '',
+  kickChannelName: '',
+  kickAvatar: '',
+  // Per-platform "include in the combined goal" toggles. A platform only counts
+  // when it is both enabled AND connected (has a token + identity on file).
+  twitchEnabled: true,
+  youtubeEnabled: true,
+  kickEnabled: true,
+  // How often the polled sources (YouTube, Kick) refresh their totals.
+  pollIntervalSec: 60,
   startGoal: 5,
   increment: 5,
   writeToFile: false,
@@ -29,11 +46,14 @@ function userDir() {
 function settingsPath() {
   return path.join(userDir(), 'settings.json')
 }
-function tokenPath() {
-  return path.join(userDir(), 'token.enc')
-}
-function legacyTokenPath() {
-  return path.join(userDir(), 'token.plain')
+// Per-platform refresh-token files. Twitch keeps its original filenames so
+// existing installs keep their login; new platforms get a prefixed pair.
+function tokenPaths(platform = 'twitch') {
+  const base = platform === 'twitch' ? 'token' : `${platform}-token`
+  return {
+    enc: path.join(userDir(), `${base}.enc`),
+    plain: path.join(userDir(), `${base}.plain`),
+  }
 }
 
 function load() {
@@ -56,42 +76,43 @@ function save(cfg) {
   } catch {}
 }
 
-// ---- refresh token, encrypted at rest ----
+// ---- refresh tokens, encrypted at rest (one file per platform) ----
 
 // Returns true if stored encrypted, false if we fell back to plaintext.
-function saveToken(token) {
+function saveToken(platform, token) {
+  const { enc, plain } = tokenPaths(platform)
   if (safeStorage.isEncryptionAvailable()) {
     try {
-      const enc = safeStorage.encryptString(token)
-      fs.writeFileSync(tokenPath(), enc)
+      fs.writeFileSync(enc, safeStorage.encryptString(token))
       try {
-        fs.unlinkSync(legacyTokenPath())
+        fs.unlinkSync(plain)
       } catch {}
       return true
     } catch {}
   }
   try {
-    fs.writeFileSync(legacyTokenPath(), token, { mode: 0o600 })
+    fs.writeFileSync(plain, token, { mode: 0o600 })
   } catch {}
   return false
 }
 
-function loadToken() {
+function loadToken(platform) {
+  const { enc, plain } = tokenPaths(platform)
   if (safeStorage.isEncryptionAvailable()) {
     try {
-      const buf = fs.readFileSync(tokenPath())
-      return safeStorage.decryptString(buf) || null
+      return safeStorage.decryptString(fs.readFileSync(enc)) || null
     } catch {}
   }
   try {
-    return fs.readFileSync(legacyTokenPath(), 'utf8').trim() || null
+    return fs.readFileSync(plain, 'utf8').trim() || null
   } catch {
     return null
   }
 }
 
-function clearToken() {
-  for (const p of [tokenPath(), legacyTokenPath()]) {
+function clearToken(platform) {
+  const { enc, plain } = tokenPaths(platform)
+  for (const p of [enc, plain]) {
     try {
       fs.unlinkSync(p)
     } catch {}
