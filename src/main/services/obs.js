@@ -1,6 +1,7 @@
 'use strict'
 
 const { OBSWebSocket } = require('obs-websocket-js')
+const { EventEmitter } = require('events')
 
 const TEXT_KINDS = new Set([
   'text_gdiplus_v3',
@@ -12,13 +13,21 @@ const TEXT_KINDS = new Set([
 
 class OBSError extends Error {}
 
-class OBSClient {
+class OBSClient extends EventEmitter {
   constructor() {
+    super()
     this.obs = new OBSWebSocket()
     this.connected = false
-    this.obs.on('ConnectionClosed', () => {
-      this.connected = false
-    })
+    this.obs.on('ConnectionClosed', () => this._setConnected(false))
+  }
+
+  // Single source of truth for the connection flag; emits 'status' (boolean) on
+  // change so the main process can surface a live OBS online/offline signal with
+  // no polling or heartbeat — it just reflects the connections we already make.
+  _setConnected(v) {
+    if (this.connected === v) return
+    this.connected = v
+    this.emit('status', v)
   }
 
   async connect({ host = 'localhost', port = 4455, password = '' } = {}) {
@@ -26,7 +35,7 @@ class OBSClient {
     const url = `ws://${host}:${port}`
     try {
       await this.obs.connect(url, password || undefined)
-      this.connected = true
+      this._setConnected(true)
     } catch (e) {
       throw new OBSError(friendly(e))
     }
@@ -36,7 +45,7 @@ class OBSClient {
     try {
       await this.obs.disconnect()
     } catch {}
-    this.connected = false
+    this._setConnected(false)
   }
 
   // Try the default local connection with no password. Used by onboarding
@@ -56,7 +65,7 @@ class OBSClient {
     try {
       resp = await this.obs.call('GetInputList')
     } catch (e) {
-      this.connected = false
+      this._setConnected(false)
       throw new OBSError(friendly(e))
     }
     return (resp.inputs || [])
@@ -107,7 +116,7 @@ class OBSClient {
         overlay: true,
       })
     } catch (e) {
-      this.connected = false
+      this._setConnected(false)
       throw new OBSError(friendly(e))
     }
   }

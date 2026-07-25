@@ -2,29 +2,43 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import gearIcon from '../assets/icon-settings.svg'
-import plusIcon from '../assets/icon-plus.svg'
-import minusIcon from '../assets/icon-minus.svg'
+import StatusPill from '../components/StatusPill.vue'
+import GoalBoost from '../components/GoalBoost.vue'
+import ConfirmOverlay from '../components/ConfirmOverlay.vue'
+
+// INTERIM platform icons for the Total Subs card — reusing the bundled logos
+// until the new icon set lands (swap the three imports below when it does).
+import twitchLogo from '../assets/twitch.svg'
+import kickLogo from '../assets/kick.svg'
+import youtubeLogo from '../assets/youtube.svg'
 
 const router = useRouter()
+
+const PLATFORM_META = {
+  twitch: { label: 'Twitch', logo: twitchLogo },
+  kick: { label: 'Kick', logo: kickLogo },
+  youtube: { label: 'YouTube', logo: youtubeLogo },
+}
+// Total Subs icon order follows the design (twitch · kick · youtube).
+const ICON_ORDER = ['twitch', 'kick', 'youtube']
 
 const count = ref(0)
 const goal = ref(5)
 const tracking = ref(false)
-const synced = ref(false)
-
-const startGoal = ref(5)
 const increment = ref(5)
-
-// Per-platform breakdown of the combined count.
-const SHORT = { twitch: 'TW', youtube: 'YT', kick: 'KK' }
+const defaultIncrement = ref(5)
+const obsOnline = ref(true) // optimistic until the open-probe reports back
+const obsSource = ref('')
 const platforms = ref([])
-const breakdown = computed(() =>
-  platforms.value
-    .filter((p) => p.connected && p.enabled)
-    .map((p) => ({ id: p.id, label: SHORT[p.id] || p.id, value: p.contribution }))
-)
+const totals = ref({ per: {}, sum: 0, hasAny: false })
+
+// Which Total Subs platform icon is hovered (reveals its per-platform figure).
+const hoverPlatform = ref(null)
+
+const confirmingReset = ref(false)
 
 const cleanups = []
+let onFocus = null
 
 onMounted(async () => {
   if (!window.ng) return
@@ -32,56 +46,97 @@ onMounted(async () => {
   count.value = s.count
   goal.value = s.goal
   tracking.value = s.tracking
-  synced.value = s.synced
-  startGoal.value = s.startGoal
   increment.value = s.increment
+  defaultIncrement.value = s.cfg?.increment ?? s.increment
+  obsSource.value = s.cfg?.obsSource || ''
   platforms.value = s.platforms || []
+  if (s.totals) totals.value = s.totals
 
-  cleanups.push(window.ng.onCountChanged(({ count: c, goal: g, platforms: p }) => {
-    count.value = c; goal.value = g
-    if (p) platforms.value = p
-  }))
+  cleanups.push(
+    window.ng.onCountChanged(({ count: c, goal: g, platforms: p }) => {
+      count.value = c
+      goal.value = g
+      if (p) platforms.value = p
+    })
+  )
   cleanups.push(window.ng.onTrackingChanged((v) => (tracking.value = v)))
-  // One platform's auth expiring doesn't necessarily stop tracking — the main
-  // process emits tracking-changed if everything stops, so just ignore here.
+  cleanups.push(window.ng.onObsStatus(({ online }) => (obsOnline.value = !!online)))
+  cleanups.push(window.ng.onTotalsChanged((t) => (totals.value = t)))
   cleanups.push(window.ng.onAuthExpired(() => {}))
+
+  // On-demand freshness (no background timers): refresh totals + probe OBS on
+  // open and whenever the window regains focus.
+  refreshOnShow()
+  onFocus = () => refreshOnShow()
+  window.addEventListener('focus', onFocus)
 })
 
-onUnmounted(() => cleanups.forEach((fn) => fn && fn()))
+onUnmounted(() => {
+  cleanups.forEach((fn) => fn && fn())
+  if (onFocus) window.removeEventListener('focus', onFocus)
+})
 
-// Starting goal is locked while live (session base is fixed) and while synced
-// (the base comes from the sub total, not the starting goal).
-const startLocked = computed(() => tracking.value || synced.value)
+async function refreshOnShow() {
+  window.ng.refreshTotals()
+  const r = await window.ng.obsPing()
+  if (r && typeof r.online === 'boolean') obsOnline.value = r.online
+}
 
+// ---- health pill (precedence) ----
+const anyConnected = computed(() => platforms.value.some((p) => p.connected))
+const health = computed(() => {
+  if (tracking.value) return { label: 'Live', tone: 'live' }
+  if (!anyConnected.value) return { label: 'No Channels', tone: 'warn' }
+  if (!obsSource.value) return { label: 'No Source Selected', tone: 'warn' }
+  if (!obsOnline.value) return { label: 'OBS Offline', tone: 'warn' }
+  return { label: 'Ready', tone: 'ok' }
+})
+const canStart = computed(() => tracking.value || health.value.tone === 'ok')
+
+// ---- subs cards ----
+const sessionDisplay = computed(() =>
+  tracking.value || count.value > 0 ? String(count.value) : '-'
+)
+
+// Platforms whose total counts (connected + "Add in total"), in icon order.
+const includedIcons = computed(() =>
+  ICON_ORDER.filter((id) => {
+    const p = platforms.value.find((x) => x.id === id)
+    return p && p.connected && p.enabled
+  })
+)
+const totalLabel = computed(() =>
+  hoverPlatform.value ? PLATFORM_META[hoverPlatform.value].label : 'Total Subs'
+)
+const totalValue = computed(() => {
+  if (hoverPlatform.value) {
+    const v = totals.value.per?.[hoverPlatform.value]
+    return v == null ? '-' : String(v)
+  }
+  return totals.value.hasAny ? String(totals.value.sum) : '-'
+})
+
+// ---- actions ----
 function toggle() {
   tracking.value ? window.ng.stopTracking() : window.ng.startTracking()
 }
-function reset() {
-  if (tracking.value) return
+function bumpCount(n) {
+  window.ng.adjustCount(n)
+}
+function bumpGoal(n) {
+  window.ng.adjustGoal(n)
+}
+function setBoost(v) {
+  increment.value = v
+  window.ng.setSessionGoal({ increment: v })
+}
+function doReset() {
+  // Reset the goal boost back to the saved default and zero the session count.
+  window.ng.setSessionGoal({ increment: defaultIncrement.value })
+  increment.value = defaultIncrement.value
   window.ng.resetCount()
+  confirmingReset.value = false
 }
-function saveGoal() {
-  window.ng.setSessionGoal({
-    startGoal: Math.max(1, Number(startGoal.value) || 1),
-    increment: Math.max(1, Number(increment.value) || 1),
-  })
-}
-function bumpCount(n) { window.ng.adjustCount(n) }
-function bumpGoal(n) { window.ng.adjustGoal(n) }
-
-async function onSync(e) {
-  const on = e.target.checked
-  const res = await window.ng.syncSubCount(on)
-  if (res && res.ok) {
-    synced.value = res.synced
-    count.value = res.count
-    goal.value = res.goal
-  } else {
-    synced.value = false
-    e.target.checked = false
-  }
-}
-
 function openSettings() {
   router.push('/settings')
 }
@@ -92,10 +147,7 @@ function openSettings() {
     <header class="head">
       <div class="brand">
         <span class="t-title">NextGoal</span>
-        <span class="pill">
-          <span class="dot" :style="{ background: tracking ? 'var(--status-ok)' : 'var(--primary)' }"></span>
-          <span class="t-caption">{{ tracking ? 'Live' : 'Ready' }}</span>
-        </span>
+        <StatusPill :label="health.label" :tone="health.tone" />
       </div>
       <button class="icon-btn" aria-label="Settings" @click="openSettings">
         <span class="icon gear" :style="{ '--icon': `url(${gearIcon})` }"></span>
@@ -103,78 +155,98 @@ function openSettings() {
     </header>
 
     <div class="body">
-      <!-- GOAL INPUTS (live session values) -->
-      <div class="goal-row">
-        <label class="col field">
-          <span class="t-label muted">Starting goal</span>
-          <input type="number" min="1" v-model="startGoal" @change="saveGoal" :disabled="startLocked" />
-        </label>
-        <label class="col field">
-          <span class="t-label muted">Increase by</span>
-          <input type="number" min="1" v-model="increment" @change="saveGoal" />
-        </label>
-      </div>
+      <GoalBoost :increment="increment" @set="setBoost" />
 
-      <!-- COUNTER with +/- above & below each number -->
-      <div class="counter-area">
-        <div class="counter" :class="{ synced }">
+      <!-- COUNTER: +/- stacked over/under each number, brand slash between -->
+      <div class="counter">
+        <div class="num-col">
           <button class="pm pm--count" aria-label="Add to count" @click="bumpCount(1)">
-            <span class="icon" :style="{ '--icon': `url(${plusIcon})` }"></span>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
           </button>
-          <span class="spacer"></span>
-          <button class="pm pm--goal" aria-label="Raise goal" @click="bumpGoal(1)">
-            <span class="icon" :style="{ '--icon': `url(${plusIcon})` }"></span>
-          </button>
-
-          <span class="num count">{{ count }}</span>
-          <span class="num slash">/</span>
-          <span class="num goal">{{ goal }}</span>
-
+          <span class="num count" :class="{ live: tracking }">{{ count }}</span>
           <button class="pm pm--count" aria-label="Subtract from count" @click="bumpCount(-1)">
-            <span class="icon" :style="{ '--icon': `url(${minusIcon})` }"></span>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14" /></svg>
           </button>
-          <span class="spacer"></span>
+        </div>
+        <span class="num slash">/</span>
+        <div class="num-col">
+          <button class="pm pm--goal" aria-label="Raise goal" @click="bumpGoal(1)">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
+          </button>
+          <span class="num goal">{{ goal }}</span>
           <button class="pm pm--goal" aria-label="Lower goal" @click="bumpGoal(-1)">
-            <span class="icon" :style="{ '--icon': `url(${minusIcon})` }"></span>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14" /></svg>
           </button>
         </div>
       </div>
 
-      <!-- PER-PLATFORM BREAKDOWN (only when more than one source counts) -->
-      <div class="breakdown" v-if="breakdown.length > 1">
-        <span v-for="(b, i) in breakdown" :key="b.id" class="bd-item">
-          <span class="bd-label">{{ b.label }}</span>
-          <span class="bd-value">{{ b.value }}</span>
-          <span v-if="i < breakdown.length - 1" class="bd-sep">·</span>
-        </span>
-      </div>
+      <!-- SUBS: current session + all-time total -->
+      <section class="subs">
+        <span class="subs-label">SUBS</span>
+        <div class="subs-row">
+          <div class="sub-card">
+            <div class="sub-top">
+              <span class="sub-title">Current Session</span>
+              <span v-if="tracking" class="active">ACTIVE</span>
+            </div>
+            <span class="sub-value" :class="{ live: tracking }">{{ sessionDisplay }}</span>
+          </div>
 
-      <!-- SYNC -->
-      <label class="sync" :class="{ on: synced }">
-        <input type="checkbox" :checked="synced" @change="onSync" />
-        <span class="t-label">Sync total sub count</span>
-      </label>
+          <div class="sub-card total">
+            <div class="sub-top">
+              <span class="sub-title">{{ totalLabel }}</span>
+              <div v-if="includedIcons.length" class="icons">
+                <img
+                  v-for="id in includedIcons"
+                  :key="id"
+                  :src="PLATFORM_META[id].logo"
+                  :alt="PLATFORM_META[id].label"
+                  class="plat-icon"
+                  :class="{ dim: hoverPlatform && hoverPlatform !== id }"
+                  width="16"
+                  height="16"
+                  @mouseenter="hoverPlatform = id"
+                  @mouseleave="hoverPlatform = null"
+                />
+              </div>
+            </div>
+            <span class="sub-value">{{ totalValue }}</span>
+          </div>
+        </div>
+      </section>
     </div>
 
     <footer class="foot">
       <button
         class="btn btn--lg foot-start"
         :class="tracking ? 'btn--danger' : 'btn--primary'"
+        :disabled="!canStart"
         @click="toggle"
       >
         {{ tracking ? 'Stop' : 'Start' }}
       </button>
-      <button class="btn btn--secondary btn--lg foot-reset" :disabled="tracking" @click="reset">Reset</button>
+      <button class="btn btn--secondary btn--lg foot-reset" @click="confirmingReset = true">
+        Reset
+      </button>
     </footer>
+
+    <ConfirmOverlay
+      v-if="confirmingReset"
+      title="Would you like to reset?"
+      body="This will reset your selected goal boost to default and your current session count to 0."
+      confirm-label="Reset"
+      cancel-label="Nevermind"
+      @confirm="doReset"
+      @cancel="confirmingReset = false"
+    />
   </div>
 </template>
 
 <style scoped>
-.wrap { height: 100%; display: flex; flex-direction: column; }
-.muted { color: var(--text-muted); }
+.wrap { height: 100%; display: flex; flex-direction: column; position: relative; }
 
 .head { display: flex; align-items: center; justify-content: space-between; padding: 40px 40px 0; }
-.brand { display: flex; align-items: center; gap: var(--s-2); }
+.brand { display: flex; align-items: center; gap: var(--s-3); }
 
 .icon-btn { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px;
   border: 0; background: transparent; border-radius: var(--r-md); cursor: pointer; color: var(--text-secondary);
@@ -182,59 +254,51 @@ function openSettings() {
 .icon-btn:hover { background: var(--hover); color: var(--text); }
 .gear { width: 28px; height: 28px; }
 
-.body { flex: 1; display: flex; flex-direction: column; padding: var(--s-5) 40px; gap: var(--s-4); min-height: 0; }
+.body { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: var(--s-6); padding: 40px; min-height: 0; }
 
-.goal-row { display: flex; gap: var(--s-3); align-items: flex-start; }
-.field { gap: 6px; flex: 1; }
-.field .t-label { color: var(--text-secondary); }
-.field input:disabled { opacity: .5; cursor: not-allowed; }
-
-/* Counter: 3 columns (count | slash | goal) × 3 rows (plus | number | minus).
-   Digits are tight (2px gap) with the +/- centered over each number. */
-.counter-area { flex: 1; display: flex; align-items: center; justify-content: center; min-height: 0; }
-.counter {
-  display: grid;
-  grid-template-columns: auto auto auto;
-  grid-template-rows: auto auto auto;
-  align-items: center; justify-items: center;
-  column-gap: 2px; row-gap: var(--s-2);
-}
-.num { font-size: 144px; line-height: 1; font-weight: 700; letter-spacing: -1.1px;
-  font-variant-numeric: tabular-nums; }
+/* Counter — Figma: gap 4 between columns; each column gap 28; number 128px;
+   count text/primary (green when live), slash Light, goal brand. +/- 24px. */
+.counter { display: flex; align-items: center; justify-content: center; gap: var(--s-1);
+  padding: var(--s-4) var(--s-6); }
+.num-col { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 28px; }
+.num { font-size: 128px; line-height: 1; font-weight: 700; letter-spacing: -1.1px; font-variant-numeric: tabular-nums; }
 .num.count { color: var(--text); }
-.num.slash { color: var(--text-muted); }
+.num.count.live { color: var(--status-ok); }
 .num.goal { color: var(--primary); }
-.spacer { width: 1px; }
+.num.slash { color: var(--text); font-weight: 300; }
 
-/* Synced: the count number and its +/- turn green; the goal stays brand. */
-.counter.synced .num.count { color: var(--status-ok); }
-.counter.synced .pm--count { color: var(--status-ok); }
-
-.pm { display: inline-flex; align-items: center; justify-content: center;
-  width: 32px; height: 32px; padding: 0; border: 0; background: transparent; cursor: pointer;
+.pm { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px;
+  padding: 0; border: 0; background: transparent; cursor: pointer;
   transition: transform var(--dur) var(--ease), opacity var(--dur) var(--ease); }
-.pm .icon { width: 32px; height: 32px; }
+.pm svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 2;
+  stroke-linecap: round; stroke-linejoin: round; }
 .pm--count { color: var(--text); }
 .pm--goal { color: var(--primary); }
 .pm:hover { opacity: .8; }
 .pm:active { transform: scale(.92); }
 .pm:focus-visible { outline: none; box-shadow: var(--focus); border-radius: var(--r-full); }
 
-/* per-platform breakdown */
-.breakdown { display: flex; align-items: center; justify-content: center; gap: var(--s-2);
-  color: var(--text-muted); font-size: 13px; }
-.bd-item { display: inline-flex; align-items: center; gap: var(--s-1); }
-.bd-label { font-weight: 600; letter-spacing: .3px; }
-.bd-value { color: var(--text-secondary); font-variant-numeric: tabular-nums; }
-.bd-sep { margin-left: var(--s-1); color: var(--border-strong); }
+/* SUBS */
+.subs { display: flex; flex-direction: column; gap: var(--s-3); width: 380px; align-self: center; }
+.subs-label { font-size: 13px; line-height: 1.4; font-weight: 500; color: var(--text-secondary); }
+.subs-row { display: flex; gap: var(--s-3); align-items: stretch; }
+.sub-card { background: var(--surface-sunken); border: 1px solid var(--border); border-radius: var(--r-lg);
+  padding: 10px var(--s-4); display: flex; flex-direction: column; gap: var(--s-2); flex: 1 1 0; min-width: 0; }
+.sub-card.total { flex: 0 0 184px; }
+.sub-top { display: flex; align-items: center; gap: var(--s-2); min-height: 20px; }
+.sub-title { flex: 1 1 auto; font-size: 13px; line-height: 1.4; font-weight: 500; color: var(--text-secondary);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.active { font-size: 11px; line-height: 1.3; font-weight: 500; letter-spacing: .06em; color: var(--status-ok); }
+.sub-value { font-size: 20px; line-height: 1.3; font-weight: 500; letter-spacing: -0.2px; color: var(--text);
+  font-variant-numeric: tabular-nums; }
+.sub-value.live { color: var(--status-ok); }
+.icons { display: flex; align-items: center; gap: var(--s-1); flex: 0 0 auto; }
+.plat-icon { display: block; cursor: default; transition: opacity var(--dur) var(--ease); }
+.plat-icon.dim { opacity: .35; }
 
-.sync { display: flex; align-items: center; justify-content: center; gap: var(--s-2); cursor: pointer;
-  color: var(--text-secondary); }
-.sync.on { color: var(--status-ok); }
-.sync input { width: 16px; height: 16px; accent-color: var(--status-ok); cursor: pointer; }
-
-/* Start:Reset widths follow the Figma 260:108 ratio (gap 12) within the 380 row. */
+/* Figma: Start grows to fill, Reset is a fixed 108px; gap 12. */
 .foot { display: flex; gap: var(--s-3); padding: var(--s-4) 40px var(--s-8); }
-.foot-start { flex: 260 1 0; }
-.foot-reset { flex: 108 1 0; }
+.foot-start { flex: 1 1 0; }
+.foot-reset { flex: 0 0 108px; }
 </style>

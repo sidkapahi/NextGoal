@@ -30,7 +30,11 @@ contextBridge.exposeInMainWorld('ng', {
   obsCreateSource: (name) => ipcRenderer.invoke('obs-create-source', name),
   obsSelectSource: (name) => ipcRenderer.invoke('obs-select-source', name),
   obsTestSource: (name) => ipcRenderer.invoke('obs-test-source', name),
+  obsPing: () => ipcRenderer.invoke('obs-ping'),
   setObsPassword: (pw) => ipcRenderer.invoke('set-obs-password', pw),
+
+  // all-time subscriber totals (fetched on demand — no background polling)
+  refreshTotals: () => ipcRenderer.invoke('refresh-totals'),
 
   // tracking
   startTracking: () => ipcRenderer.invoke('start-tracking'),
@@ -50,6 +54,8 @@ contextBridge.exposeInMainWorld('ng', {
   // events from main
   onCountChanged: (cb) => on('count-changed', cb),
   onTrackingChanged: (cb) => on('tracking-changed', cb),
+  onObsStatus: (cb) => on('obs-status', cb),
+  onTotalsChanged: (cb) => on('totals-changed', cb),
   onStatus: (cb) => on('status', cb),
   onWarning: (cb) => on('warning', cb),
   onNeedLogin: (cb) => on('need-login', cb),

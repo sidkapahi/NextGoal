@@ -30,7 +30,8 @@ if (!app.requestSingleInstanceLock()) {
 
 // ---- live app state ----
 let cfg = null
-let obs = new OBSClient()
+let obsOnline = false
+let obs = makeObs()
 let count = 0
 let goal = 5
 let synced = false
@@ -165,6 +166,9 @@ app.whenReady().then(async () => {
     if (cfg.checkForUpdates) updater.check()
   } catch {}
 
+  // Populate the Total Subs card once at startup (best-effort, on demand).
+  if (cfg.onboarded) refreshTotals()
+
   if (cfg.onboarded && cfg.autostartTracking && PLATFORMS.some((p) => participates(sources[p]))) {
     startTracking()
   }
@@ -173,6 +177,67 @@ app.whenReady().then(async () => {
 function send(channel, payload) {
   const w = windows.getWindow()
   if (w && !w.isDestroyed()) w.webContents.send(channel, payload)
+}
+
+// Every OBS client goes through here so its connection status reaches the
+// renderer. Handlers re-instantiate the client with fresh creds, so wiring the
+// listener at construction keeps the obsOnline signal live with no heartbeat —
+// it just reflects the connections the app already makes.
+function makeObs() {
+  const c = new OBSClient()
+  c.on('status', setObsOnline)
+  return c
+}
+function setObsOnline(on) {
+  if (on === obsOnline) return
+  obsOnline = on
+  send('obs-status', { online: obsOnline })
+}
+
+// All-time subscriber/member totals per platform, fetched ON DEMAND only (no
+// background timer). Kept separate from the session-count bookkeeping in
+// `sources` so the Total Subs card always shows the real platform total,
+// independent of tracking/synced state.
+const allTimeTotals = { twitch: null, youtube: null, kick: null }
+let totalsBusy = false
+
+function totalsSnapshot() {
+  const per = {}
+  let sum = 0
+  let hasAny = false
+  for (const p of PLATFORMS) {
+    const included = sources[p].enabled && isConnected(p)
+    const v = included && typeof allTimeTotals[p] === 'number' ? allTimeTotals[p] : null
+    per[p] = v
+    if (v != null) {
+      sum += v
+      hasAny = true
+    }
+  }
+  return { per, sum, hasAny }
+}
+
+// Best-effort refresh for enabled+connected platforms, then notify the renderer.
+// A single failure keeps the last-known value rather than blanking the card.
+async function refreshTotals() {
+  if (totalsBusy) return
+  totalsBusy = true
+  try {
+    for (const p of PLATFORMS) {
+      if (sources[p].enabled && isConnected(p)) {
+        try {
+          allTimeTotals[p] = Math.max(0, Number(await providers[p].getTotal()) || 0)
+        } catch {
+          // best-effort — never throw out of here
+        }
+      } else {
+        allTimeTotals[p] = null
+      }
+    }
+    send('totals-changed', totalsSnapshot())
+  } finally {
+    totalsBusy = false
+  }
 }
 
 // Seed the runtime source map from persisted config: which platforms the user
@@ -411,8 +476,11 @@ ipcMain.handle('get-state', () => ({
   startGoal: sessStartGoal,
   increment: sessIncrement,
   obsPassword,
+  obsOnline,
   // Multi-source snapshot.
   platforms: platformsSnapshot(),
+  // All-time subscriber totals (Total Subs card) — refreshed on demand.
+  totals: totalsSnapshot(),
 }))
 
 ipcMain.handle('save-settings', (_e, patch) => {
@@ -436,9 +504,13 @@ ipcMain.handle('reset-defaults', () => {
   return cfg
 })
 
+// On-demand all-time totals refresh (Total Subs card). Called by the renderer on
+// mount and on window focus — no background polling.
+ipcMain.handle('refresh-totals', () => refreshTotals())
+
 ipcMain.handle('set-obs-password', (_e, pw) => {
   obsPassword = pw || ''
-  obs = new OBSClient() // force fresh connect with new creds
+  obs = makeObs() // force fresh connect with new creds
   return true
 })
 
@@ -462,6 +534,9 @@ ipcMain.handle('set-platform-enabled', (_e, { platform, on } = {}) => {
   }
   recomputeCount()
   pushOutput()
+  // "Add in total" gates which platforms count toward the Total Subs card;
+  // refresh so a newly-included platform fetches its total on demand.
+  refreshTotals()
   return { platform, enabled: sources[platform].enabled }
 })
 
@@ -509,6 +584,7 @@ async function startDeviceLogin(platform) {
         persistToken(platform, rt)
         await saveIdentity(platform, accessToken)
         send('login-ok', { platform, name: platformName(platform), avatar: platformAvatar(platform) })
+        refreshTotals()
       } catch (e) {
         send('login-failed', { platform, message: e.message })
       }
@@ -536,6 +612,7 @@ function startLoopbackLogin(platform) {
       persistToken(platform, rt)
       await saveIdentity(platform, accessToken)
       send('login-ok', { platform, name: platformName(platform), avatar: platformAvatar(platform) })
+      refreshTotals()
     } catch (e) {
       send('login-failed', { platform, message: e.message })
     }
@@ -550,8 +627,10 @@ function logoutPlatform(platform) {
   for (const k of IDENTITY_KEYS[platform]) cfg[k] = ''
   config.save(cfg)
   sources[platform].connected = false
+  allTimeTotals[platform] = null
   recomputeCount()
   pushOutput()
+  send('totals-changed', totalsSnapshot())
   if (tracking && !anyDriverActive()) {
     tracking = false
     updateTray({ tracking: false, count, goal })
@@ -562,13 +641,13 @@ function logoutPlatform(platform) {
 
 // --- OBS ---
 ipcMain.handle('obs-auto-detect', async () => {
-  obs = new OBSClient()
+  obs = makeObs()
   const ok = await obs.tryAutoDetect()
   return ok
 })
 
 ipcMain.handle('obs-connect', async (_e, { host, port, password }) => {
-  obs = new OBSClient()
+  obs = makeObs()
   obsPassword = password || ''
   try {
     await obs.connect({ host, port, password })
@@ -613,6 +692,19 @@ ipcMain.handle('obs-test-source', async (_e, name) => {
     return { ok: true }
   } catch (e) {
     return { ok: false, error: e.message }
+  }
+})
+
+// Lightweight status probe for the Home health pill. Reuses the live client
+// (connect() no-ops if already connected), persists nothing, and lets the client
+// emit obs-status. Called by the renderer on window open/focus — not on a timer.
+ipcMain.handle('obs-ping', async () => {
+  if (!cfg.useObsWebsocket || !cfg.obsSource) return { online: false }
+  try {
+    await obs.connect({ host: cfg.obsHost, port: cfg.obsPort, password: obsPassword })
+    return { online: true }
+  } catch {
+    return { online: false }
   }
 })
 
@@ -680,8 +772,9 @@ ipcMain.handle('reset-all-data', () => {
   cfg = { ...config.DEFAULTS }
   config.save(cfg)
   for (const p of PLATFORMS) refreshTokens[p] = null
+  for (const p of PLATFORMS) allTimeTotals[p] = null
   obsPassword = ''
-  obs = new OBSClient()
+  obs = makeObs()
   count = 0
   synced = false
   manualGoal = false
