@@ -236,7 +236,7 @@ function openSettings() {
             </div>
             <div class="sub-bottom">
               <span v-fit class="sub-value" :class="{ live: tracking && activeCard === 'session' }">{{ sessionDisplay }}</span>
-              <span v-if="activeCard === 'session'" class="active">ACTIVE</span>
+              <span v-if="activeCard === 'session'" class="active-badge">ACTIVE</span>
             </div>
           </button>
 
@@ -266,7 +266,7 @@ function openSettings() {
             </div>
             <div class="sub-bottom">
               <span v-fit class="sub-value" :class="{ live: tracking && activeCard === 'total' }">{{ totalValue }}</span>
-              <span v-if="activeCard === 'total'" class="active">ACTIVE</span>
+              <span v-if="activeCard === 'total'" class="active-badge">ACTIVE</span>
             </div>
           </button>
         </div>
@@ -356,7 +356,7 @@ function openSettings() {
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* ACTIVE sits on the value row, aligned to the number (not the title). */
 .sub-bottom { display: flex; align-items: baseline; justify-content: space-between; gap: var(--s-2); min-width: 0; }
-.active { flex: 0 0 auto; font-size: 11px; line-height: 1.3; font-weight: 500; letter-spacing: .06em; color: var(--status-ok); }
+.active-badge { flex: 0 0 auto; font-size: 11px; line-height: 1.3; font-weight: 500; letter-spacing: .06em; color: var(--status-ok); }
 /* Value shrinks to fit (v-fit) when the number is long, rather than overflowing. */
 .sub-value { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden;
   font-size: 20px; line-height: 1.3; font-weight: 500; letter-spacing: -0.2px; color: var(--text);
