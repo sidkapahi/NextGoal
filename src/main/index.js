@@ -346,6 +346,9 @@ function startTracking() {
     return
   }
   tracking = true
+  // A new session always starts in Current Session mode (count from 0); the
+  // user can switch to Total Subs while live.
+  synced = false
   manualOffset = 0
 
   for (const p of active) {

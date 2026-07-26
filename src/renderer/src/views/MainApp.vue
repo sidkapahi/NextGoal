@@ -172,7 +172,8 @@ function doReset() {
 // backend returns the resulting `synced` state (and pushes count-changed), so a
 // failed sync (e.g. no platform connected) simply leaves the selection as-is.
 async function selectCard(card) {
-  if (activeCard.value === card) return
+  // Sources are only selectable once a session is running.
+  if (!tracking.value || activeCard.value === card) return
   const res = await window.ng.syncSubCount(card === 'total')
   if (res && typeof res.synced === 'boolean') synced.value = res.synced
 }
@@ -227,8 +228,8 @@ function openSettings() {
           <button
             type="button"
             class="sub-card"
-            :class="{ active: activeCard === 'session' }"
-            :aria-pressed="activeCard === 'session'"
+            :class="{ active: tracking && activeCard === 'session', selectable: tracking }"
+            :aria-pressed="tracking && activeCard === 'session'"
             @click="selectCard('session')"
           >
             <div class="sub-top">
@@ -236,15 +237,15 @@ function openSettings() {
             </div>
             <div class="sub-bottom">
               <span v-fit class="sub-value" :class="{ live: tracking && activeCard === 'session' }">{{ sessionDisplay }}</span>
-              <span v-if="activeCard === 'session'" class="active-badge">ACTIVE</span>
+              <span v-if="tracking && activeCard === 'session'" class="active-badge">ACTIVE</span>
             </div>
           </button>
 
           <button
             type="button"
             class="sub-card total"
-            :class="{ active: activeCard === 'total' }"
-            :aria-pressed="activeCard === 'total'"
+            :class="{ active: tracking && activeCard === 'total', selectable: tracking }"
+            :aria-pressed="tracking && activeCard === 'total'"
             @click="selectCard('total')"
           >
             <div class="sub-top">
@@ -266,7 +267,7 @@ function openSettings() {
             </div>
             <div class="sub-bottom">
               <span v-fit class="sub-value" :class="{ live: tracking && activeCard === 'total' }">{{ totalValue }}</span>
-              <span v-if="activeCard === 'total'" class="active-badge">ACTIVE</span>
+              <span v-if="tracking && activeCard === 'total'" class="active-badge">ACTIVE</span>
             </div>
           </button>
         </div>
@@ -346,13 +347,16 @@ function openSettings() {
 .subs-row { display: flex; gap: var(--s-3); align-items: stretch; }
 .sub-card { background: var(--surface-sunken); border: 1px solid var(--border); border-radius: var(--r-lg);
   padding: 10px var(--s-4); display: flex; flex-direction: column; gap: var(--s-2); flex: 1 1 0; min-width: 0;
-  font-family: inherit; text-align: left; cursor: pointer; appearance: none;
+  font-family: inherit; text-align: left; cursor: default; appearance: none;
   transition: border-color var(--dur) var(--ease), background var(--dur) var(--ease); }
 /* Both cards are equal width regardless of their text (Figma: 184px each). */
+.sub-card.selectable { cursor: pointer; }
 .sub-card.active { border-color: var(--status-ok); }
 .sub-card:focus-visible { outline: none; box-shadow: var(--focus); }
 .sub-top { display: flex; align-items: center; gap: var(--s-2); min-height: 20px; }
-.sub-title { flex: 1 1 auto; font-size: 13px; line-height: 1.4; font-weight: 500; color: var(--text-secondary);
+/* Title can shrink/truncate; the platform icons stay locked to the right edge
+   (margin-left:auto) so they never shift when the hovered title changes. */
+.sub-title { flex: 0 1 auto; min-width: 0; font-size: 13px; line-height: 1.4; font-weight: 500; color: var(--text-secondary);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* ACTIVE sits on the value row, aligned to the number (not the title). */
 .sub-bottom { display: flex; align-items: baseline; justify-content: space-between; gap: var(--s-2); min-width: 0; }
@@ -362,7 +366,7 @@ function openSettings() {
   font-size: 20px; line-height: 1.3; font-weight: 500; letter-spacing: -0.2px; color: var(--text);
   font-variant-numeric: tabular-nums; }
 .sub-value.live { color: var(--status-ok); }
-.icons { display: flex; align-items: center; gap: var(--s-1); flex: 0 0 auto; }
+.icons { display: flex; align-items: center; gap: var(--s-1); flex: 0 0 auto; margin-left: auto; }
 .plat-icon { display: block; cursor: default; transition: opacity var(--dur) var(--ease); }
 .plat-icon.dim { opacity: .35; }
 
