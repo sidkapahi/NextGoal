@@ -30,7 +30,7 @@
   --text:var(--n-800); --text-secondary:var(--n-700); --text-muted:var(--n-600);
   --text-disabled:var(--n-500); --on-primary:#FFFFFF;
   --primary:var(--brand-500); --primary-hover:var(--brand-600);
-  --status-live:var(--accent-500); --status-idle:var(--n-500);
+  --status-live:var(--err-500); --status-idle:var(--n-500);
   --status-ok:var(--ok-500); --status-warn:var(--warn-500); --status-error:var(--err-500);
 
   --focus: 0 0 0 2px var(--bg), 0 0 0 4px var(--brand-500);

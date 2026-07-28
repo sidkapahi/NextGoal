@@ -1,6 +1,6 @@
 <script setup>
 // Header health pill: a colored dot + label. Tone drives the dot color.
-//   ok   → Ready (green)      live → Live (accent orange)     warn → amber
+//   ok   → Ready (green)      live → Live (red)               warn → amber
 defineProps({
   label: { type: String, required: true },
   tone: { type: String, default: 'ok' }, // 'ok' | 'live' | 'warn'
