@@ -225,12 +225,15 @@ function openSettings() {
       <section class="subs">
         <span class="subs-label">SUBS</span>
         <div class="subs-row">
-          <button
-            type="button"
+          <div
             class="sub-card"
             :class="{ active: tracking && activeCard === 'session', selectable: tracking }"
+            role="button"
+            :tabindex="tracking ? 0 : -1"
             :aria-pressed="tracking && activeCard === 'session'"
             @click="selectCard('session')"
+            @keydown.enter.prevent="selectCard('session')"
+            @keydown.space.prevent="selectCard('session')"
           >
             <div class="sub-top">
               <span class="sub-title">Current Session</span>
@@ -239,14 +242,17 @@ function openSettings() {
               <span v-fit class="sub-value" :class="{ live: tracking && activeCard === 'session' }">{{ sessionDisplay }}</span>
               <span v-if="tracking && activeCard === 'session'" class="active-badge">ACTIVE</span>
             </div>
-          </button>
+          </div>
 
-          <button
-            type="button"
+          <div
             class="sub-card total"
             :class="{ active: tracking && activeCard === 'total', selectable: tracking }"
+            role="button"
+            :tabindex="tracking ? 0 : -1"
             :aria-pressed="tracking && activeCard === 'total'"
             @click="selectCard('total')"
+            @keydown.enter.prevent="selectCard('total')"
+            @keydown.space.prevent="selectCard('total')"
           >
             <div class="sub-top">
               <span class="sub-title">{{ totalLabel }}</span>
@@ -269,7 +275,7 @@ function openSettings() {
               <span v-fit class="sub-value" :class="{ live: tracking && activeCard === 'total' }">{{ totalValue }}</span>
               <span v-if="tracking && activeCard === 'total'" class="active-badge">ACTIVE</span>
             </div>
-          </button>
+          </div>
         </div>
       </section>
     </div>
@@ -346,21 +352,21 @@ function openSettings() {
 .subs-label { font-size: 13px; line-height: 1.4; font-weight: 500; color: var(--text-secondary); }
 .subs-row { display: flex; gap: var(--s-3); align-items: stretch; }
 .sub-card { background: var(--surface-sunken); border: 1px solid var(--border); border-radius: var(--r-lg);
-  padding: 10px var(--s-4); display: flex; flex-direction: column; gap: var(--s-2); flex: 1 1 0; min-width: 0;
-  font-family: inherit; text-align: left; cursor: default; appearance: none;
+  padding: 10px var(--s-4); display: flex; flex-direction: column; align-items: stretch; gap: var(--s-2);
+  flex: 1 1 0; min-width: 0; cursor: default;
   transition: border-color var(--dur) var(--ease), background var(--dur) var(--ease); }
 /* Both cards are equal width regardless of their text (Figma: 184px each). */
 .sub-card.selectable { cursor: pointer; }
 .sub-card.active { border-color: var(--status-ok); }
 .sub-card:focus-visible { outline: none; box-shadow: var(--focus); }
-.sub-top { display: flex; align-items: center; gap: var(--s-2); min-height: 20px; }
+.sub-top { display: flex; align-items: center; gap: var(--s-2); min-height: 20px; width: 100%; }
 /* Title can shrink/truncate; the platform icons stay locked to the right edge
    (margin-left:auto) so they never shift when the hovered title changes. */
 .sub-title { flex: 0 1 auto; min-width: 0; font-size: 13px; line-height: 1.4; font-weight: 500; color: var(--text-secondary);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* ACTIVE sits on the value row, aligned to the number (not the title). */
-.sub-bottom { display: flex; align-items: baseline; justify-content: space-between; gap: var(--s-2); min-width: 0; }
-.active-badge { flex: 0 0 auto; font-size: 11px; line-height: 1.3; font-weight: 500; letter-spacing: .06em; color: var(--status-ok); }
+.sub-bottom { display: flex; align-items: baseline; justify-content: space-between; gap: var(--s-2); width: 100%; min-width: 0; }
+.active-badge { flex: 0 0 auto; margin-left: auto; font-size: 11px; line-height: 1.3; font-weight: 500; letter-spacing: .06em; color: var(--status-ok); }
 /* Value shrinks to fit (v-fit) when the number is long, rather than overflowing. */
 .sub-value { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden;
   font-size: 20px; line-height: 1.3; font-weight: 500; letter-spacing: -0.2px; color: var(--text);
