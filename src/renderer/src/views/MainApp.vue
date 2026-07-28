@@ -20,14 +20,40 @@ const vFit = {
   mounted: (el) => fitText(el),
   updated: (el) => fitText(el),
 }
+// Run a fit pass once fonts are ready (measuring before the web font loads uses
+// the fallback metrics and under-shrinks), then on the next frame.
+function afterFonts(fn) {
+  const go = () => requestAnimationFrame(fn)
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(go)
+  else go()
+}
 function fitText(el) {
-  requestAnimationFrame(() => {
+  afterFonts(() => {
     el.style.fontSize = ''
     let size = parseFloat(getComputedStyle(el).fontSize)
     let guard = 40
     while (el.scrollWidth > el.clientWidth + 0.5 && size > 10 && guard-- > 0) {
       size -= 1
       el.style.fontSize = `${size}px`
+    }
+  })
+}
+
+// Scale the big count/goal numbers (128px) down so the counter never overflows
+// its width — e.g. "30000 / 50000". Only the digits scale via --num-size; the
+// slash stays fixed. Re-runs whenever count or goal change.
+const vFitNum = {
+  mounted: (el) => fitNum(el),
+  updated: (el) => fitNum(el),
+}
+function fitNum(el) {
+  afterFonts(() => {
+    el.style.setProperty('--num-size', '128px')
+    let size = 128
+    let guard = 100
+    while (el.scrollWidth > el.clientWidth + 0.5 && size > 36 && guard-- > 0) {
+      size -= 2
+      el.style.setProperty('--num-size', `${size}px`)
     }
   })
 }
@@ -199,7 +225,7 @@ function openSettings() {
       <GoalBoost :increment="increment" @set="setBoost" />
 
       <!-- COUNTER: +/- stacked over/under each number, brand slash between -->
-      <div class="counter">
+      <div class="counter" v-fit-num>
         <div class="num-col">
           <button class="pm pm--count" aria-label="Add to count" @click="bumpCount(1)">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
@@ -324,11 +350,14 @@ function openSettings() {
 /* Counter — Figma: gap 4 between columns; each column gap 28; number 128px;
    count text/primary (green when live), slash Light, goal brand. +/- 24px. */
 .counter { display: flex; align-items: center; justify-content: center; gap: var(--s-1);
-  padding: var(--s-4) var(--s-6); }
+  padding: var(--s-4) 0; max-width: 100%; }
 .num-col { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 28px; }
 /* line-height 0.73 trims the box to the glyph (~94px), so the 28px gap to the
-   +/- reads as the real distance to the number (not to the font's leading). */
+   +/- reads as the real distance to the number (not to the font's leading).
+   count/goal scale via --num-size (v-fit-num) when the numbers get long; the
+   slash stays fixed at 128px. */
 .num { font-size: 128px; line-height: 0.73; font-weight: 700; letter-spacing: -1.1px; font-variant-numeric: tabular-nums; }
+.num.count, .num.goal { font-size: var(--num-size, 128px); }
 .num.count { color: var(--text); }
 .num.count.live { color: var(--status-ok); }
 .num.goal { color: var(--primary); }
