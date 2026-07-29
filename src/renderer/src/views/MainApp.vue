@@ -252,7 +252,7 @@ function openSettings() {
 
       <!-- COUNTER: +/- stacked over/under each number, brand slash between -->
       <div class="counter" v-fit-num>
-        <div class="num-col">
+        <div class="num-col" :class="{ editing: editing === 'count' }">
           <button class="pm pm--count" aria-label="Add to count" @click="bumpCount(1)">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
           </button>
@@ -273,7 +273,7 @@ function openSettings() {
           </button>
         </div>
         <span class="num slash">/</span>
-        <div class="num-col">
+        <div class="num-col" :class="{ editing: editing === 'goal' }">
           <button class="pm pm--goal" aria-label="Raise goal" @click="bumpGoal(1)">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
           </button>
@@ -436,6 +436,10 @@ function openSettings() {
 .pm--goal { color: var(--text); }
 .pm:hover { opacity: .8; }
 .pm:active { transform: scale(.92); }
+/* While typing a number, fade out that column's +/- so they don't spread as the
+   input box grows taller than the static glyph. They keep their reserved space,
+   so the number itself never jumps. */
+.num-col.editing .pm { opacity: 0; pointer-events: none; }
 .pm:focus-visible { outline: none; box-shadow: var(--focus); border-radius: var(--r-full); }
 
 /* SUBS */
