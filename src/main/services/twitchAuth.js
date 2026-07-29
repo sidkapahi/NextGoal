@@ -93,6 +93,11 @@ async function pollForToken(deviceCode, interval, expiresIn, shouldCancel) {
 // so concurrent refreshers of the same token share one rotation (avoids a
 // spurious "login expired" when e.g. the tracker and the totals refresh race).
 async function doRefreshAccessToken(refreshToken, onNewRefreshToken) {
+  const tail = (t) => (t ? '…' + String(t).slice(-6) : 'null')
+  // TEMP DIAGNOSTIC: trace the refresh so we can see which token is used, the
+  // client id in play, and the exact failure body. Remove once the auth issue
+  // is understood.
+  console.log(`[twitch-auth] refresh using ${tail(refreshToken)} client=${tail(CLIENT_ID)}`)
   const res = await fetch(TOKEN_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -103,11 +108,16 @@ async function doRefreshAccessToken(refreshToken, onNewRefreshToken) {
     }),
   })
 
-  if (res.status === 400 || res.status === 401)
+  if (res.status === 400 || res.status === 401) {
+    let body = ''
+    try { body = await res.text() } catch {}
+    console.error(`[twitch-auth] refresh FAILED ${res.status}: ${body}`)
     throw new AuthExpired('Your Twitch login expired. Please log in again.')
+  }
   if (!res.ok) throw new AuthError('Couldn’t reach Twitch. Check your internet connection and try again.')
 
   const data = await res.json()
+  console.log(`[twitch-auth] refresh OK, rotated ${tail(refreshToken)} -> ${tail(data.refresh_token)}`)
   if (data.refresh_token && onNewRefreshToken) onNewRefreshToken(data.refresh_token)
   return data.access_token
 }

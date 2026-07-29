@@ -79,20 +79,30 @@ function save(cfg) {
 // ---- refresh tokens, encrypted at rest (one file per platform) ----
 
 // Returns true if stored encrypted, false if we fell back to plaintext.
+// TEMP DIAGNOSTIC helper: last 6 chars only, never the whole secret.
+const _tail = (t) => (t ? '…' + String(t).slice(-6) : 'null')
+
 function saveToken(platform, token) {
   const { enc, plain } = tokenPaths(platform)
-  if (safeStorage.isEncryptionAvailable()) {
+  const encAvail = safeStorage.isEncryptionAvailable()
+  if (encAvail) {
     try {
       fs.writeFileSync(enc, safeStorage.encryptString(token))
       try {
         fs.unlinkSync(plain)
       } catch {}
+      console.log(`[token] saved ${platform} (encrypted) ${_tail(token)}`)
       return true
-    } catch {}
+    } catch (e) {
+      console.error(`[token] encrypted save failed for ${platform}: ${e.message}`)
+    }
   }
   try {
     fs.writeFileSync(plain, token, { mode: 0o600 })
-  } catch {}
+    console.log(`[token] saved ${platform} (PLAINTEXT, encAvail=${encAvail}) ${_tail(token)}`)
+  } catch (e) {
+    console.error(`[token] save failed for ${platform}: ${e.message}`)
+  }
   return false
 }
 
@@ -100,12 +110,17 @@ function loadToken(platform) {
   const { enc, plain } = tokenPaths(platform)
   if (safeStorage.isEncryptionAvailable()) {
     try {
-      return safeStorage.decryptString(fs.readFileSync(enc)) || null
+      const t = safeStorage.decryptString(fs.readFileSync(enc)) || null
+      console.log(`[token] loaded ${platform} (encrypted) ${_tail(t)}`)
+      return t
     } catch {}
   }
   try {
-    return fs.readFileSync(plain, 'utf8').trim() || null
+    const t = fs.readFileSync(plain, 'utf8').trim() || null
+    console.log(`[token] loaded ${platform} (plaintext) ${_tail(t)}`)
+    return t
   } catch {
+    console.log(`[token] no stored token for ${platform}`)
     return null
   }
 }
