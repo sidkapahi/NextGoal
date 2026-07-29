@@ -6,7 +6,7 @@ import obsSourcesImg from '../assets/obs-sources.png'
 import brandTwitch from '../assets/brand-twitch.svg'
 import brandKick from '../assets/brand-kick.svg'
 import brandYoutube from '../assets/brand-youtube.svg'
-import alertIcon from '../assets/icon-alert.svg'
+import warningIcon from '../assets/warning.svg'
 import closeIcon from '../assets/icon-close.svg'
 import welcomeLogo from '../assets/welcome-logo.svg'
 
@@ -415,7 +415,7 @@ function backFromWebsocket() { editMode.value ? router.push('/app') : (step.valu
         <div class="grow"></div>
 
         <div v-if="!anyConnected && !dismissNoChannels" class="banner">
-          <span class="banner-ico icon" :style="{ '--icon': `url(${alertIcon})` }"></span>
+          <img class="banner-ico" :src="warningIcon" alt="" />
           <span class="t-caption banner-text">You must have at least one channel connected to start a live session.</span>
           <button class="banner-x" aria-label="Dismiss" @click="dismissNoChannels = true">
             <span class="icon x-sm" :style="{ '--icon': `url(${closeIcon})` }"></span>
@@ -530,7 +530,7 @@ function backFromWebsocket() { editMode.value ? router.push('/app') : (step.valu
 .banner { display: flex; align-items: center; gap: var(--s-2); width: 100%;
   padding: var(--s-3) var(--s-4); border: 1px solid var(--warn-500, var(--status-warn));
   border-radius: var(--r-md); background: color-mix(in srgb, var(--warn-500, var(--status-warn)) 12%, transparent); }
-.banner-ico { flex: 0 0 auto; width: 18px; height: 18px; color: var(--warn-500, var(--status-warn)); }
+.banner-ico { flex: 0 0 auto; display: block; width: 20px; height: 20px; }
 .banner-text { color: var(--warn-500, var(--status-warn)); flex: 1; }
 .banner-x { flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px;
   padding: 0; border: 0; background: transparent; cursor: pointer; color: var(--warn-500, var(--status-warn)); }
