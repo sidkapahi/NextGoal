@@ -18,16 +18,21 @@ const EVENT_TYPES = [
 ]
 
 class SubTracker extends EventEmitter {
-  constructor({ broadcasterId, refreshToken, onNewRefreshToken, countResubs = true }) {
+  constructor({ broadcasterId, getRefreshToken, onNewRefreshToken, countResubs = true }) {
     super()
     this.broadcasterId = broadcasterId
-    this.refreshToken = refreshToken
+    // Read the refresh token lazily from the shared source of truth rather than
+    // snapshotting it: another component (e.g. the on-demand totals refresh) can
+    // rotate the single-use token between our refreshes, and a stale snapshot
+    // would then 400 and look like a spurious "login expired".
+    this.getRefreshToken = getRefreshToken
     this.onNewRefreshToken = onNewRefreshToken
     this.countResubs = countResubs
     this.accessToken = null
     this.ws = null
     this.stopped = false
     this.reconnectTimer = null
+    this.reconnectAttempts = 0
   }
 
   async start() {
@@ -53,8 +58,7 @@ class SubTracker extends EventEmitter {
   }
 
   async _refresh() {
-    this.accessToken = await auth.refreshAccessToken(this.refreshToken, (t) => {
-      this.refreshToken = t
+    this.accessToken = await auth.refreshAccessToken(this.getRefreshToken(), (t) => {
       if (this.onNewRefreshToken) this.onNewRefreshToken(t)
     })
   }
@@ -105,6 +109,7 @@ class SubTracker extends EventEmitter {
             if (etype === 'channel.subscription.message' && !this.countResubs) continue
             await this._subscribe(etype, version, sessionId)
           }
+          this.reconnectAttempts = 0 // healthy again — reset the backoff
           this.emit('connected')
         } catch (e) {
           this.emit('error', e.message)
@@ -126,8 +131,13 @@ class SubTracker extends EventEmitter {
 
     this.ws.on('close', () => {
       if (this.stopped) return
-      this.emit('status', 'Reconnecting in 5s...')
-      this.reconnectTimer = setTimeout(() => this._connect(EVENTSUB_URL), 5000)
+      // Exponential backoff (5s → 60s cap) so a sustained Twitch/network outage
+      // isn't hammered every 5s. A transient blip reconnects on the first try
+      // and resets the backoff via 'connected', so live counting stays prompt.
+      const delay = Math.min(5000 * 2 ** this.reconnectAttempts, 60000)
+      this.reconnectAttempts++
+      this.emit('status', `Reconnecting in ${Math.round(delay / 1000)}s...`)
+      this.reconnectTimer = setTimeout(() => this._connect(EVENTSUB_URL), delay)
     })
 
     this.ws.on('error', () =>

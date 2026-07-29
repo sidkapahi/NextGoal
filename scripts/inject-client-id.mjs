@@ -6,6 +6,22 @@
 import fs from 'fs'
 import path from 'path'
 
+// Load a .env at the project root into process.env so a local `npm run dist:win`
+// picks up the same credentials used for dev. Shell-provided vars win. CI passes
+// the vars directly, so the file simply won't exist there — that's fine.
+try {
+  const envPath = path.resolve(process.cwd(), '.env')
+  for (const line of fs.readFileSync(envPath, 'utf8').split(/\r?\n/)) {
+    const m = line.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$/)
+    if (!m) continue
+    const key = m[1]
+    const val = m[2].trim().replace(/^["']|["']$/g, '')
+    if (process.env[key] === undefined) process.env[key] = val
+  }
+} catch {
+  // no .env file — vars may come from the shell (or CI) instead
+}
+
 const file = path.resolve('out/main/index.js')
 let src = fs.readFileSync(file, 'utf8')
 

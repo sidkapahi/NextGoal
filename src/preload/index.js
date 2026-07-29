@@ -13,7 +13,6 @@ contextBridge.exposeInMainWorld('ng', {
   getState: () => ipcRenderer.invoke('get-state'),
   saveSettings: (patch) => ipcRenderer.invoke('save-settings', patch),
   setSessionGoal: (patch) => ipcRenderer.invoke('set-session-goal', patch),
-  resetDefaults: () => ipcRenderer.invoke('reset-defaults'),
 
   // platform auth (twitch | youtube | kick). Defaults to twitch so existing
   // call sites keep working.
@@ -24,13 +23,16 @@ contextBridge.exposeInMainWorld('ng', {
     ipcRenderer.invoke('set-platform-enabled', { platform, on }),
 
   // obs
-  obsAutoDetect: () => ipcRenderer.invoke('obs-auto-detect'),
   obsConnect: (opts) => ipcRenderer.invoke('obs-connect', opts),
   obsListSources: () => ipcRenderer.invoke('obs-list-sources'),
   obsCreateSource: (name) => ipcRenderer.invoke('obs-create-source', name),
   obsSelectSource: (name) => ipcRenderer.invoke('obs-select-source', name),
   obsTestSource: (name) => ipcRenderer.invoke('obs-test-source', name),
+  obsPing: () => ipcRenderer.invoke('obs-ping'),
   setObsPassword: (pw) => ipcRenderer.invoke('set-obs-password', pw),
+
+  // all-time subscriber totals (fetched on demand — no background polling)
+  refreshTotals: () => ipcRenderer.invoke('refresh-totals'),
 
   // tracking
   startTracking: () => ipcRenderer.invoke('start-tracking'),
@@ -38,7 +40,6 @@ contextBridge.exposeInMainWorld('ng', {
   resetCount: () => ipcRenderer.invoke('reset-count'),
   adjustCount: (n) => ipcRenderer.invoke('adjust-count', n),
   adjustGoal: (n) => ipcRenderer.invoke('adjust-goal', n),
-  fireTestSub: () => ipcRenderer.invoke('fire-test-sub'),
   syncSubCount: (on) => ipcRenderer.invoke('sync-sub-count', on),
 
   // windowing
@@ -50,13 +51,14 @@ contextBridge.exposeInMainWorld('ng', {
   // events from main
   onCountChanged: (cb) => on('count-changed', cb),
   onTrackingChanged: (cb) => on('tracking-changed', cb),
+  onObsStatus: (cb) => on('obs-status', cb),
+  onTotalsChanged: (cb) => on('totals-changed', cb),
+  onPlatformWarnings: (cb) => on('platform-warnings', cb),
   onStatus: (cb) => on('status', cb),
   onWarning: (cb) => on('warning', cb),
-  onNeedLogin: (cb) => on('need-login', cb),
   onAuthExpired: (cb) => on('auth-expired', cb),
   // Platform login result events carry { platform, name, avatar } / { platform, message }.
   onLoginOk: (cb) => on('login-ok', cb),
   onLoginFailed: (cb) => on('login-failed', cb),
-  onUpdateAvailable: (cb) => on('update-available', cb),
   onUpdateDownloaded: (cb) => on('update-downloaded', cb),
 })

@@ -2,20 +2,21 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import closeIcon from '../assets/icon-close.svg'
-import alertIcon from '../assets/icon-alert.svg'
-import twitchWhite from '../assets/twitch-white.svg'
-import youtubeLogo from '../assets/youtube.svg'
-import kickLogo from '../assets/kick.svg'
+import warningIcon from '../assets/warning.svg'
+import brandTwitch from '../assets/brand-twitch.svg'
+import brandKick from '../assets/brand-kick.svg'
+import brandYoutube from '../assets/brand-youtube.svg'
+import ConfirmOverlay from '../components/ConfirmOverlay.vue'
 
 const router = useRouter()
 
-const tab = ref('general') // general | obs | twitch | youtube | kick
+const tab = ref('general') // general | obs | channels
 
-// --- platforms ---
+// --- platforms (design order: Twitch · Kick · YouTube) ---
 const PLATFORMS = [
-  { id: 'twitch', label: 'Twitch', logo: twitchWhite, cls: 'btn--twitch', unit: 'subs' },
-  { id: 'youtube', label: 'YouTube', logo: youtubeLogo, cls: 'btn--youtube', unit: 'members' },
-  { id: 'kick', label: 'Kick', logo: kickLogo, cls: 'btn--kick', unit: 'subs' },
+  { id: 'twitch', label: 'Twitch', badge: brandTwitch, unit: 'subs' },
+  { id: 'kick', label: 'Kick', badge: brandKick, unit: 'subs' },
+  { id: 'youtube', label: 'YouTube', badge: brandYoutube, unit: 'members' },
 ]
 // keyed by platform id → { connected, name, enabled }
 const platforms = ref({
@@ -23,15 +24,22 @@ const platforms = ref({
   youtube: { connected: false, name: '', enabled: true },
   kick: { connected: false, name: '', enabled: true },
 })
+// Persistent per-platform warnings (e.g. a YouTube channel that isn't a Partner
+// so member count is unavailable). Shown as an amber banner at the foot of the
+// Channels tab. Keyed by platform id → message | null.
+const warnings = ref({ twitch: null, youtube: null, kick: null })
 // device-code prompt currently showing (twitch/youtube); kick uses the browser
 const activeCode = ref({ platform: '', userCode: '', verifyUri: '' })
 const meta = (id) => PLATFORMS.find((p) => p.id === id)
 const anyConnected = computed(() => Object.values(platforms.value).some((p) => p.connected))
+// Locally dismissible banners (X). Cleared when the underlying state changes.
+const dismissNoChannels = ref(false)
+const dismissedWarn = ref({})
 
 // --- general (persisted default goal settings) ---
 const defStartGoal = ref(5)
 const defIncrement = ref(5)
-const confirmDelete = ref(false)
+const showReset = ref(false)
 
 // --- obs ---
 const obsHost = ref('localhost')
@@ -45,6 +53,9 @@ const selected = ref('')
 const customName = ref('')
 const obsBusy = ref(false)
 const testState = ref('idle') // idle | testing | success | error
+// Which part of the OBS config a failed test/save blamed, so the matching
+// field(s) can highlight red: null | 'connection' | 'password' | 'source'.
+const obsError = ref(null)
 
 const cleanups = []
 
@@ -54,6 +65,7 @@ onMounted(async () => {
   for (const p of s.platforms || []) {
     platforms.value[p.id] = { connected: p.connected, name: p.name, enabled: p.enabled }
   }
+  if (s.warnings) warnings.value = { ...warnings.value, ...s.warnings }
   defStartGoal.value = s.cfg.startGoal
   defIncrement.value = s.cfg.increment
   obsHost.value = s.cfg.obsHost
@@ -66,9 +78,13 @@ onMounted(async () => {
     window.ng.onLoginOk(({ platform, name }) => {
       platforms.value[platform].connected = true
       platforms.value[platform].name = name
+      dismissNoChannels.value = false
       if (activeCode.value.platform === platform)
         activeCode.value = { platform: '', userCode: '', verifyUri: '' }
     })
+  )
+  cleanups.push(
+    window.ng.onPlatformWarnings((w) => (warnings.value = { ...warnings.value, ...w }))
   )
 })
 
@@ -80,6 +96,7 @@ onUnmounted(() => {
 // so editing (or reselecting a source) clears it and re-enables Save.
 function invalidateTest() {
   if (testState.value !== 'testing') testState.value = 'idle'
+  obsError.value = null
 }
 
 function close() {
@@ -94,17 +111,17 @@ function saveGeneral() {
   })
   close()
 }
-async function resetToDefaults() {
-  const cfg = await window.ng.resetDefaults()
-  defStartGoal.value = cfg.startGoal
-  defIncrement.value = cfg.increment
-}
-async function deleteData() {
+async function confirmReset() {
+  // Full wipe: defaults, all platform logins, and OBS config — then back to setup.
   await window.ng.resetAllData()
   router.push('/onboarding')
 }
 
 // ---------- OBS ----------
+// A wrong password fails auth; a bad host/port fails to connect at all.
+function classifyConnectError(msg) {
+  return /auth|password|credential|4009/i.test(msg || '') ? 'password' : 'connection'
+}
 async function toggleEditSource() {
   if (editingSource.value) { editingSource.value = false; return }
   obsBusy.value = true
@@ -112,7 +129,7 @@ async function toggleEditSource() {
     host: obsHost.value, port: Number(obsPort.value), password: obsPassword.value,
   })
   obsBusy.value = false
-  if (!res.ok) return // error surfaces via toast on save/test; keep the row as-is
+  if (!res.ok) { obsError.value = classifyConnectError(res.error); testState.value = 'error'; return }
   const list = await window.ng.obsListSources()
   sources.value = list.sources || []
   if (!selected.value && sources.value.length) selected.value = sources.value[0]
@@ -141,15 +158,15 @@ async function addCustom() {
 async function testObs() {
   if (testState.value === 'testing') return
   testState.value = 'testing'
+  obsError.value = null
   const conn = await window.ng.obsConnect({
     host: obsHost.value, port: Number(obsPort.value), password: obsPassword.value,
   })
-  let ok = false
-  if (conn.ok) {
-    const res = await window.ng.obsTestSource(selected.value || obsSource.value)
-    ok = !!(res && res.ok)
-  }
-  testState.value = ok ? 'success' : 'error'
+  if (!conn.ok) { obsError.value = classifyConnectError(conn.error); testState.value = 'error'; return }
+  const res = await window.ng.obsTestSource(selected.value || obsSource.value)
+  if (!(res && res.ok)) { obsError.value = 'source'; testState.value = 'error'; return }
+  obsError.value = null
+  testState.value = 'success'
 }
 
 async function saveObs() {
@@ -158,12 +175,12 @@ async function saveObs() {
   const res = await window.ng.obsConnect({
     host: obsHost.value, port: Number(obsPort.value), password: obsPassword.value,
   })
-  if (!res.ok) { testState.value = 'error'; return }
+  if (!res.ok) { obsError.value = classifyConnectError(res.error); testState.value = 'error'; return }
   await window.ng.obsSelectSource(selected.value || obsSource.value)
   close()
 }
 
-// ---------- Platforms ----------
+// ---------- Channels ----------
 async function loginPlatform(id) {
   const res = await window.ng.loginStart(id)
   if (res.error) return
@@ -181,6 +198,9 @@ function toggleEnabled(id) {
   platforms.value[id].enabled = on
   window.ng.setPlatformEnabled(id, on)
 }
+function dismissWarn(id) {
+  dismissedWarn.value = { ...dismissedWarn.value, [id]: true }
+}
 </script>
 
 <template>
@@ -195,46 +215,34 @@ function toggleEnabled(id) {
     <nav class="tabs">
       <button class="tab" :class="{ active: tab === 'general' }" @click="tab = 'general'">General</button>
       <button class="tab" :class="{ active: tab === 'obs' }" @click="tab = 'obs'">OBS</button>
-      <button v-for="p in PLATFORMS" :key="p.id" class="tab" :class="{ active: tab === p.id }" @click="tab = p.id">
-        {{ p.label }}
-        <span v-if="platforms[p.id].enabled && !platforms[p.id].connected" class="tab-alert icon"
-              :style="{ '--icon': `url(${alertIcon})` }"></span>
-      </button>
+      <button class="tab" :class="{ active: tab === 'channels' }" @click="tab = 'channels'">Channels</button>
     </nav>
 
     <!-- ============ GENERAL ============ -->
     <template v-if="tab === 'general'">
       <div class="body">
         <div class="section">
-          <h2 class="t-h">Default Goal Settings</h2>
+          <h2 class="t-h">Defaults</h2>
           <div class="row" style="gap:var(--s-3); align-items:flex-start">
             <label class="col field">
               <span class="t-label">Starting goal</span>
               <input type="number" min="1" v-model="defStartGoal" />
             </label>
             <label class="col field">
-              <span class="t-label">Increase by</span>
+              <span class="t-label">Goal boost</span>
               <input type="number" min="1" v-model="defIncrement" />
             </label>
           </div>
         </div>
 
+        <div class="grow"></div>
+
         <div class="section">
           <div class="col" style="gap:var(--s-2)">
             <h2 class="t-h">Danger Zone</h2>
-            <p class="t-body sub">Reset restores your default goal settings. Deleting removes all your data
-              permanently — this can't be undone.</p>
+            <p class="t-body sub">This cannot be reversed later and will trigger the setup process again.</p>
           </div>
-          <div class="row" style="gap:var(--s-3)">
-            <button class="btn btn--secondary btn--lg danger-btn" @click="resetToDefaults">Reset To Defaults</button>
-            <template v-if="!confirmDelete">
-              <button class="btn btn--danger btn--lg danger-btn" @click="confirmDelete = true">Delete all my data</button>
-            </template>
-            <template v-else>
-              <button class="btn btn--secondary btn--lg danger-btn" @click="confirmDelete = false">Cancel</button>
-              <button class="btn btn--danger btn--lg danger-btn" @click="deleteData">Confirm delete</button>
-            </template>
-          </div>
+          <button class="btn btn--danger btn--lg btn--full" @click="showReset = true">Reset</button>
         </div>
       </div>
       <footer class="foot">
@@ -248,24 +256,25 @@ function toggleEnabled(id) {
     <template v-else-if="tab === 'obs'">
       <div class="body">
         <div class="col" style="gap:var(--s-2)">
-          <h2 class="t-h">Edit OBS Configuration</h2>
-          <p class="t-body sub">Update the WebSocket connection details or change the source being tracked.</p>
+          <h2 class="t-h">Websocket Connection</h2>
+          <p class="t-body sub">Tools &gt; WebSocket Server Settings &gt; tick <strong>Enable</strong>.</p>
         </div>
         <div class="section">
         <div class="row" style="gap:var(--s-3); align-items:flex-start">
-          <label class="col field">
+          <label class="col field" :class="{ 'field--error': obsError === 'connection' }">
             <span class="t-label">Host Address</span>
             <input v-model="obsHost" @input="invalidateTest" />
           </label>
-          <label class="col field">
+          <label class="col field" :class="{ 'field--error': obsError === 'connection' }">
             <span class="t-label">Port</span>
             <input v-model="obsPort" @input="invalidateTest" />
           </label>
         </div>
-        <label class="col field">
+        <label class="col field" :class="{ 'field--error': obsError === 'password' }">
           <span class="t-label">Password (if you set one)</span>
           <div class="pw-field">
-            <input class="pw-input" :type="showPw ? 'text' : 'password'" v-model="obsPassword" @input="invalidateTest" />
+            <input class="pw-input" :type="showPw ? 'text' : 'password'" v-model="obsPassword"
+                   placeholder="Press &quot;Show Connect Info&quot; in OBS" @input="invalidateTest" />
             <button type="button" class="pw-toggle" @click="showPw = !showPw"
                     :aria-label="showPw ? 'Hide password' : 'Show password'">
               <svg v-if="showPw" width="18" height="18" viewBox="0 0 24 24" fill="none"
@@ -282,9 +291,13 @@ function toggleEnabled(id) {
             </button>
           </div>
         </label>
+        </div>
 
-        <label class="col field">
-          <span class="t-label">Source</span>
+        <div class="col" style="gap:var(--s-2)">
+          <h2 class="t-h">Source</h2>
+          <p class="t-body sub">Text (GDI+) — feel free to customize to fit your overlay</p>
+        </div>
+        <label class="col field" :class="{ 'field--error': obsError === 'source' }">
           <div class="src-box">
             <div class="src-row">
               <span class="src-val"><span class="aa">Aa</span>{{ obsSource || 'No source' }}</span>
@@ -303,7 +316,6 @@ function toggleEnabled(id) {
             </div>
           </div>
         </label>
-        </div>
       </div>
       <footer class="foot">
         <button class="btn btn--ghost" @click="close">Cancel</button>
@@ -335,41 +347,74 @@ function toggleEnabled(id) {
       </footer>
     </template>
 
-    <!-- ============ PLATFORM (Twitch / YouTube / Kick) ============ -->
-    <template v-else-if="platforms[tab]">
+    <!-- ============ CHANNELS ============ -->
+    <template v-else-if="tab === 'channels'">
+      <div v-if="!anyConnected && !dismissNoChannels" class="banner">
+        <img class="banner-ico" :src="warningIcon" alt="" />
+        <span class="t-caption banner-text">You must have at least one channel connected to start a live session.</span>
+        <button class="banner-x" aria-label="Dismiss" @click="dismissNoChannels = true">
+          <span class="icon x-sm" :style="{ '--icon': `url(${closeIcon})` }"></span>
+        </button>
+      </div>
+
       <div class="body">
-        <template v-if="platforms[tab].connected">
-          <div class="col" style="gap:var(--s-2)">
-            <h2 class="t-h">Manage your {{ meta(tab).label }} connection</h2>
-            <p class="t-body sub">Signed in{{ platforms[tab].name ? ' as ' + platforms[tab].name : '' }}. Sign out to stop counting {{ meta(tab).unit }} from {{ meta(tab).label }}.</p>
+        <div class="col" style="gap:var(--s-2)">
+          <h2 class="t-h">Manage your platform connections</h2>
+          <p class="t-body sub">Switch accounts or sign out. You'll need to be logged into one to track live sub count.</p>
+        </div>
+
+        <div class="chan-list">
+          <div v-for="p in PLATFORMS" :key="p.id" class="chan-row">
+            <img class="chan-badge" :src="p.badge" width="32" height="32" alt="" />
+            <span class="chan-name">{{ platforms[p.id].connected ? (platforms[p.id].name || p.label) : p.label }}</span>
+            <div class="grow"></div>
+            <template v-if="platforms[p.id].connected">
+              <label class="add-total">
+                <input type="checkbox" :checked="platforms[p.id].enabled" @change="toggleEnabled(p.id)" />
+                <span class="checkbox" aria-hidden="true">
+                  <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 6.3 5 8.5 9.5 3.5" /></svg>
+                </span>
+                <span class="t-label">Add in total</span>
+              </label>
+              <button class="btn btn--danger-outline" @click="logoutPlatform(p.id)">Logout</button>
+            </template>
+            <template v-else>
+              <button class="btn btn--secondary" @click="loginPlatform(p.id)">
+                {{ activeCode.platform === p.id ? 'Reopen' : 'Login' }}
+              </button>
+            </template>
           </div>
-          <label class="toggle-row">
-            <input type="checkbox" :checked="platforms[tab].enabled" @change="toggleEnabled(tab)" />
-            <span class="t-label">Include {{ meta(tab).label }} {{ meta(tab).unit }} in the goal</span>
-          </label>
-          <button class="btn plat-btn" :class="meta(tab).cls" @click="logoutPlatform(tab)">
-            <img :src="meta(tab).logo" width="16" height="16" alt="" />
-            Logout
-          </button>
-        </template>
-        <template v-else>
-          <div class="col" style="gap:var(--s-2)">
-            <h2 class="t-h">Connect your {{ meta(tab).label }} account</h2>
-            <p class="t-body sub">So NextGoal can count {{ meta(tab).unit }} from {{ meta(tab).label }}. It only reads your {{ meta(tab).unit }} count — nothing else.</p>
+        </div>
+
+        <div class="card code-card" v-if="activeCode.userCode">
+          <span class="t-micro">Enter this code to authorize {{ meta(activeCode.platform).label }}</span>
+          <span class="code tabular">{{ activeCode.userCode }}</span>
+          <span class="t-caption muted">Waiting for you to authorize…</span>
+        </div>
+
+        <div class="grow"></div>
+
+        <template v-for="p in PLATFORMS" :key="`warn-${p.id}`">
+          <div v-if="platforms[p.id].connected && warnings[p.id] && !dismissedWarn[p.id]" class="banner">
+            <img class="banner-ico" :src="warningIcon" alt="" />
+            <span class="t-caption banner-text">{{ meta(p.id).label }}: {{ warnings[p.id] }}</span>
+            <button class="banner-x" aria-label="Dismiss" @click="dismissWarn(p.id)">
+              <span class="icon x-sm" :style="{ '--icon': `url(${closeIcon})` }"></span>
+            </button>
           </div>
-          <button class="btn plat-btn" :class="meta(tab).cls" @click="loginPlatform(tab)">
-            <img :src="meta(tab).logo" width="16" height="16" alt="" />
-            {{ activeCode.platform === tab ? 'Reopen activation page' : 'Login with ' + meta(tab).label }}
-          </button>
-          <div class="card code-card" v-if="activeCode.userCode && activeCode.platform === tab">
-            <span class="t-micro">Enter this code</span>
-            <span class="code tabular">{{ activeCode.userCode }}</span>
-            <span class="t-caption muted">to authorize {{ meta(tab).label }}</span>
-          </div>
-          <p v-if="activeCode.userCode && activeCode.platform === tab" class="t-caption muted">Waiting for you to authorize…</p>
         </template>
       </div>
     </template>
+
+    <ConfirmOverlay
+      v-if="showReset"
+      title="Would you like to reset?"
+      body="This deletes all defaults, disconnects all your accounts and undo's your OBS configuration."
+      confirm-label="Delete Everything"
+      cancel-label="Nevermind"
+      @confirm="confirmReset"
+      @cancel="showReset = false"
+    />
   </div>
 </template>
 
@@ -393,14 +438,28 @@ function toggleEnabled(id) {
   transition: background var(--dur) var(--ease), color var(--dur) var(--ease); }
 .tab:hover { color: var(--text); }
 .tab.active { background: var(--surface-raised); border-color: var(--border); color: var(--text); }
-.tab-alert { width: 15px; height: 15px; color: var(--status-error); }
+
+/* Amber warning banner (none-connected / per-platform), dismissible. */
+.banner { display: flex; align-items: center; gap: var(--s-2); margin: var(--s-4) 40px 0;
+  padding: var(--s-3) var(--s-4); border: 1px solid var(--warn-500, var(--status-warn));
+  border-radius: var(--r-md); background: color-mix(in srgb, var(--warn-500, var(--status-warn)) 12%, transparent); }
+.banner-ico { flex: 0 0 auto; display: block; width: 20px; height: 20px; }
+.banner-text { color: var(--warn-500, var(--status-warn)); flex: 1; }
+.banner-x { flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px;
+  padding: 0; border: 0; background: transparent; cursor: pointer; color: var(--warn-500, var(--status-warn)); }
+.banner-x:hover { opacity: .8; }
+.x-sm { width: 14px; height: 14px; }
 
 .body { flex: 1; display: flex; flex-direction: column; padding: var(--s-6) 40px; gap: var(--s-6); min-height: 0; overflow-y: auto; }
 .section { display: flex; flex-direction: column; gap: var(--s-4); width: 100%; }
 .t-h { font-size: 20px; line-height: 1.3; font-weight: 500; letter-spacing: -0.2px; color: var(--text); }
 .field { gap: 6px; flex: 1; }
 .field .t-label { color: var(--text-secondary); }
-.danger-btn { flex: 1; }
+/* Field-level validation: red label + red control border. */
+.field--error .t-label { color: var(--status-error); }
+.field--error input,
+.field--error .pw-field,
+.field--error .src-box { border-color: var(--status-error); }
 
 .foot { display: flex; align-items: center; gap: var(--s-4); padding: var(--s-5) 40px var(--s-8); }
 
@@ -436,7 +495,7 @@ function toggleEnabled(id) {
   background: var(--primary); color: var(--on-primary); border: 0; cursor: pointer; font-size: 18px; line-height: 1; }
 .src-add:hover { background: var(--primary-hover); }
 
-/* test label in footer — icon + label (matches the onboarding test states) */
+/* test label in footer — icon + label */
 .test-result { display: inline-flex; align-items: center; gap: var(--s-1);
   border: 0; background: none; cursor: pointer; font: 500 13px/1.4 var(--font);
   color: var(--text-secondary); padding: 0 var(--s-2); }
@@ -445,16 +504,24 @@ function toggleEnabled(id) {
 .test-result.error { color: var(--status-error); }
 .test-result:disabled { cursor: default; }
 
-/* platforms */
-.plat-btn { align-self: flex-start; }
-.btn--twitch { background: var(--primary); color: var(--on-primary); }
-.btn--twitch:hover { background: var(--primary-hover); }
-.btn--youtube { background: #fff; color: #0b0b0d; }
-.btn--youtube:hover { background: #eaeaea; }
-.btn--kick { background: #53fc18; color: #0b0b0d; }
-.btn--kick:hover { background: #46e310; }
-.toggle-row { display: flex; align-items: center; gap: var(--s-2); cursor: pointer; color: var(--text-secondary); }
-.toggle-row input { width: 16px; height: 16px; accent-color: var(--primary); cursor: pointer; }
+/* channels */
+.chan-list { display: flex; flex-direction: column; gap: var(--s-5); width: 100%; }
+.chan-row { display: flex; align-items: center; gap: var(--s-3); width: 100%; }
+.chan-badge { flex: 0 0 auto; width: 32px; height: 32px; border-radius: var(--r-full); }
+.chan-name { color: var(--text); font: 400 14px/1.4 var(--font); }
+.add-total { display: inline-flex; align-items: center; gap: var(--s-2); cursor: pointer; color: var(--text-secondary); }
+/* Custom 16px checkbox (native control hidden) — matches the Figma: rounded
+   square, purple fill + white check when on. */
+.add-total input { position: absolute; width: 1px; height: 1px; opacity: 0; margin: 0; pointer-events: none; }
+.add-total .checkbox { flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center;
+  width: 16px; height: 16px; border-radius: var(--r-sm); border: 1.5px solid var(--border-strong); color: #fff;
+  transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease); }
+.add-total .checkbox svg { width: 10px; height: 10px; opacity: 0; }
+.add-total input:checked + .checkbox { background: var(--primary); border-color: var(--primary); }
+.add-total input:checked + .checkbox svg { opacity: 1; }
+.add-total input:focus-visible + .checkbox { box-shadow: var(--focus); }
+.add-total .t-label { color: var(--text-secondary); }
+
 .code-card { padding: var(--s-6); align-items: center; display: flex; flex-direction: column; gap: var(--s-2); width: 100%; }
 .code { font-size: 32px; font-weight: 700; letter-spacing: 2px; }
 </style>

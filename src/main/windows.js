@@ -103,6 +103,10 @@ function createWindow({ preloadPath }) {
   win = new BrowserWindow({
     width: APP_W,
     height: APP_H,
+    // Size the web contents (not the outer frame) so the renderer gets exactly
+    // APP_W×APP_H. With frame:true the OS titlebar + borders would otherwise eat
+    // ~16px width / ~40px height, squeezing the layout off its Figma spacing.
+    useContentSize: true,
     show: false,
     frame: true,
     autoHideMenuBar: true, // no File/Edit/View menu bar

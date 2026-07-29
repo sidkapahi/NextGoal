@@ -8,3 +8,6 @@ settings.json
 token.enc
 token.plain
 sub-goal.txt
+
+# Local dev credentials
+.env
