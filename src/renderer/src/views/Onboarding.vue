@@ -379,10 +379,18 @@ function backFromWebsocket() { editMode.value ? router.push('/app') : (step.valu
 
     <!-- ============ STEP 3 — CONNECT PLATFORMS ============ -->
     <template v-else-if="step === 'platforms'">
-      <div class="ob-body col left">
+      <div class="ob-body col left step3">
         <div class="col" style="gap:var(--s-2)">
           <h1 class="t-title">Plug-in all your channels</h1>
           <p class="t-body sub">So NextGoal can count subs in real time. It can only read your sub count and account information.</p>
+        </div>
+
+        <div v-if="!anyConnected && !dismissNoChannels" class="banner">
+          <img class="banner-ico" :src="warningIcon" alt="" />
+          <span class="t-caption banner-text">You must have at least one channel connected to start a live session.</span>
+          <button class="banner-x" aria-label="Dismiss" @click="dismissNoChannels = true">
+            <span class="icon x-sm" :style="{ '--icon': `url(${closeIcon})` }"></span>
+          </button>
         </div>
 
         <div class="chan-list">
@@ -393,6 +401,9 @@ function backFromWebsocket() { editMode.value ? router.push('/app') : (step.valu
             <template v-if="connected[p.id]">
               <label class="add-total">
                 <input type="checkbox" :checked="enabled[p.id]" @change="toggleEnabled(p.id)" />
+                <span class="checkbox" aria-hidden="true">
+                  <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 6.3 5 8.5 9.5 3.5" /></svg>
+                </span>
                 <span class="t-label">Add in total</span>
               </label>
               <button class="btn btn--danger-outline" @click="logoutPlatform(p.id)">Logout</button>
@@ -411,16 +422,6 @@ function backFromWebsocket() { editMode.value ? router.push('/app') : (step.valu
           <span class="t-caption mute">Waiting for you to authorize…</span>
         </div>
         <p v-if="loginError" class="t-caption err">{{ loginError }}</p>
-
-        <div class="grow"></div>
-
-        <div v-if="!anyConnected && !dismissNoChannels" class="banner">
-          <img class="banner-ico" :src="warningIcon" alt="" />
-          <span class="t-caption banner-text">You must have at least one channel connected to start a live session.</span>
-          <button class="banner-x" aria-label="Dismiss" @click="dismissNoChannels = true">
-            <span class="icon x-sm" :style="{ '--icon': `url(${closeIcon})` }"></span>
-          </button>
-        </div>
       </div>
       <footer class="ob-foot row">
         <button class="btn btn--secondary" @click="step = 'source'">Back</button>
@@ -435,6 +436,8 @@ function backFromWebsocket() { editMode.value ? router.push('/app') : (step.valu
 .ob { height: 100%; display: flex; flex-direction: column; }
 .ob-head { display: flex; flex-direction: column; align-items: center; gap: var(--s-2); padding: 40px 40px 0; }
 .ob-body { flex: 1; display: flex; flex-direction: column; padding: var(--s-6) 40px; gap: var(--s-4); min-height: 0; }
+/* Step 3 (channels) spaces subtitle → warning → accounts at 24px per the mockup. */
+.ob-body.step3 { gap: var(--s-6); }
 .ob-foot { padding: var(--s-5) 40px var(--s-8); gap: var(--s-3); }
 .ob-foot.col { align-items: stretch; }
 .ob-foot.row { display: flex; align-items: center; }
@@ -523,7 +526,16 @@ function backFromWebsocket() { editMode.value ? router.push('/app') : (step.valu
 .chan-badge { flex: 0 0 auto; width: 32px; height: 32px; border-radius: var(--r-full); }
 .chan-name { color: var(--text); font: 400 14px/1.4 var(--font); }
 .add-total { display: inline-flex; align-items: center; gap: var(--s-2); cursor: pointer; color: var(--text-secondary); }
-.add-total input { width: 16px; height: 16px; accent-color: var(--primary); cursor: pointer; }
+/* Custom 16px checkbox (native control hidden) — matches the Figma: rounded
+   square, purple fill + white check when on. */
+.add-total input { position: absolute; width: 1px; height: 1px; opacity: 0; margin: 0; pointer-events: none; }
+.add-total .checkbox { flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center;
+  width: 16px; height: 16px; border-radius: var(--r-sm); border: 1.5px solid var(--border-strong); color: #fff;
+  transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease); }
+.add-total .checkbox svg { width: 10px; height: 10px; opacity: 0; }
+.add-total input:checked + .checkbox { background: var(--primary); border-color: var(--primary); }
+.add-total input:checked + .checkbox svg { opacity: 1; }
+.add-total input:focus-visible + .checkbox { box-shadow: var(--focus); }
 .add-total .t-label { color: var(--text-secondary); }
 
 /* amber warning banner (none-connected), dismissible */

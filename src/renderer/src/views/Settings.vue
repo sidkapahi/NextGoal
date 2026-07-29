@@ -371,6 +371,9 @@ function dismissWarn(id) {
             <template v-if="platforms[p.id].connected">
               <label class="add-total">
                 <input type="checkbox" :checked="platforms[p.id].enabled" @change="toggleEnabled(p.id)" />
+                <span class="checkbox" aria-hidden="true">
+                  <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 6.3 5 8.5 9.5 3.5" /></svg>
+                </span>
                 <span class="t-label">Add in total</span>
               </label>
               <button class="btn btn--danger-outline" @click="logoutPlatform(p.id)">Logout</button>
@@ -507,7 +510,16 @@ function dismissWarn(id) {
 .chan-badge { flex: 0 0 auto; width: 32px; height: 32px; border-radius: var(--r-full); }
 .chan-name { color: var(--text); font: 400 14px/1.4 var(--font); }
 .add-total { display: inline-flex; align-items: center; gap: var(--s-2); cursor: pointer; color: var(--text-secondary); }
-.add-total input { width: 16px; height: 16px; accent-color: var(--primary); cursor: pointer; }
+/* Custom 16px checkbox (native control hidden) — matches the Figma: rounded
+   square, purple fill + white check when on. */
+.add-total input { position: absolute; width: 1px; height: 1px; opacity: 0; margin: 0; pointer-events: none; }
+.add-total .checkbox { flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center;
+  width: 16px; height: 16px; border-radius: var(--r-sm); border: 1.5px solid var(--border-strong); color: #fff;
+  transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease); }
+.add-total .checkbox svg { width: 10px; height: 10px; opacity: 0; }
+.add-total input:checked + .checkbox { background: var(--primary); border-color: var(--primary); }
+.add-total input:checked + .checkbox svg { opacity: 1; }
+.add-total input:focus-visible + .checkbox { box-shadow: var(--focus); }
 .add-total .t-label { color: var(--text-secondary); }
 
 .code-card { padding: var(--s-6); align-items: center; display: flex; flex-direction: column; gap: var(--s-2); width: 100%; }
