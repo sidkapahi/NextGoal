@@ -17,6 +17,7 @@
 // Both are injected at build time.
 
 const { createPkce, randomState, startLoopback } = require('./oauthLoopback')
+const { makeCoalescer } = require('./refreshCoalesce')
 
 const AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth'
 const TOKEN_URL = 'https://oauth2.googleapis.com/token'
@@ -103,7 +104,9 @@ async function login({ openUrl }) {
   }
 }
 
-async function refreshAccessToken(refreshToken, onNewRefreshToken) {
+// Wrapped by makeCoalescer below so concurrent refreshers of the same token
+// share one rotation (avoids a spurious "login expired" from a lost race).
+async function doRefreshAccessToken(refreshToken, onNewRefreshToken) {
   const res = await fetch(TOKEN_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -123,6 +126,7 @@ async function refreshAccessToken(refreshToken, onNewRefreshToken) {
   if (data.refresh_token && onNewRefreshToken) onNewRefreshToken(data.refresh_token)
   return data.access_token
 }
+const refreshAccessToken = makeCoalescer(doRefreshAccessToken)
 
 async function getCurrentChannel(accessToken) {
   const url = `${CHANNELS_URL}?part=snippet&mine=true`
