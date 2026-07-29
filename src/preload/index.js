@@ -56,7 +56,6 @@ contextBridge.exposeInMainWorld('ng', {
   onPlatformWarnings: (cb) => on('platform-warnings', cb),
   onStatus: (cb) => on('status', cb),
   onWarning: (cb) => on('warning', cb),
-  onNeedLogin: (cb) => on('need-login', cb),
   onAuthExpired: (cb) => on('auth-expired', cb),
   // Platform login result events carry { platform, name, avatar } / { platform, message }.
   onLoginOk: (cb) => on('login-ok', cb),

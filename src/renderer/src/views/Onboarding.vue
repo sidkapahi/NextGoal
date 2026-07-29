@@ -214,7 +214,8 @@ function toggleEnabled(id) {
   window.ng.setPlatformEnabled(id, on)
 }
 function finishOnboarding() {
-  if (!anyConnected.value) return
+  // Channels are optional — you can finish and run a manual session, or connect
+  // one later in Settings. The warning banner still nudges, it just doesn't block.
   window.ng.completeOnboarding()
 }
 
@@ -424,7 +425,7 @@ function backFromWebsocket() { editMode.value ? router.push('/app') : (step.valu
       <footer class="ob-foot row">
         <button class="btn btn--secondary" @click="step = 'source'">Back</button>
         <div class="grow"></div>
-        <button class="btn btn--primary btn--lg" :disabled="!anyConnected" @click="finishOnboarding">Finish</button>
+        <button class="btn btn--primary btn--lg" @click="finishOnboarding">Finish</button>
       </footer>
     </template>
   </div>

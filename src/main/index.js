@@ -379,10 +379,8 @@ function startTracking() {
   // actually still valid, which would otherwise make Start silently do nothing.
   for (const p of PLATFORMS) sources[p].connected = isConnected(p)
   const active = PLATFORMS.filter((p) => participates(sources[p]))
-  if (!active.length) {
-    send('need-login')
-    return
-  }
+  // No connected channel is fine — start a manual session (count driven by
+  // +/- and click-to-edit). The header pill still shows the "No Channels" warning.
   tracking = true
   // A new session always starts in Current Session mode (count from 0); the
   // user can switch to Total Subs while live.

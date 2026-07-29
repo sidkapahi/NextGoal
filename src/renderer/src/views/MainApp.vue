@@ -141,10 +141,9 @@ const health = computed(() => {
   if (!obsOnline.value) return { label: 'OBS Offline', tone: 'warn' }
   return { label: 'Ready', tone: 'ok' }
 })
-// OBS being offline (or no source picked) no longer blocks Start — the counter
-// runs and OBS catches up when it reconnects. Only a connected channel is
-// required.
-const canStart = computed(() => tracking.value || anyConnected.value)
+// Nothing blocks Start: with no channel (or OBS offline) it runs as a manual
+// session — the count is driven by +/- and click-to-edit, and OBS catches up
+// when it reconnects. The header pill still warns when no channel is connected.
 
 // ---- subs cards ----
 // Which card drives the counter: 'total' when synced to all-time totals,
@@ -364,7 +363,6 @@ function openSettings() {
       <button
         class="btn btn--lg foot-start"
         :class="tracking ? 'btn--danger-outline' : 'btn--primary'"
-        :disabled="!canStart"
         @click="toggle"
       >
         {{ tracking ? 'Stop' : 'Start' }}
