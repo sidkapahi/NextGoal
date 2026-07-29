@@ -178,7 +178,6 @@ app.whenReady().then(async () => {
 
   try {
     updater.init({
-      onAvailable: (v) => send('update-available', v),
       onDownloaded: (v) => send('update-downloaded', v),
       onError: () => {},
     })
@@ -277,6 +276,22 @@ async function refreshTotals() {
     send('totals-changed', totalsSnapshot())
   } finally {
     totalsBusy = false
+  }
+}
+
+// Twitch arrives over EventSub as deltas, not an absolute total, so refresh its
+// all-time figure when subs actually come in — throttled so a burst of events
+// triggers at most one fetch per window. Quiet periods cost nothing (no timer).
+let lastTwitchTotalAt = 0
+async function bumpTwitchTotalLive() {
+  const now = Date.now()
+  if (now - lastTwitchTotalAt < 20000) return
+  lastTwitchTotalAt = now
+  try {
+    allTimeTotals.twitch = Math.max(0, Number(await providers.twitch.getTotal()) || 0)
+    send('totals-changed', totalsSnapshot())
+  } catch {
+    // best-effort; the on-focus refresh still covers it
   }
 }
 
@@ -411,6 +426,7 @@ function startTwitchTracker() {
     sources.twitch.total = Math.max(0, (sources.twitch.total || 0) + n)
     recomputeCount()
     pushOutput()
+    bumpTwitchTotalLive() // keep the all-time Total Subs card current (throttled)
   })
   twitchTracker.on('error', (m) => send('status', m))
   twitchTracker.on('auth-expired', (m) => handleAuthExpired('twitch', m))
@@ -440,6 +456,10 @@ function startPoller(p) {
     const s = sources[p]
     if (!synced && s.sessionBase == null) s.sessionBase = total // first tick baselines
     s.total = total
+    // The poll already fetched the true all-time total — mirror it into the
+    // Total Subs card so it stays live during a session, for free.
+    allTimeTotals[p] = total
+    send('totals-changed', totalsSnapshot())
     recomputeCount()
     pushOutput()
   })
@@ -560,13 +580,6 @@ ipcMain.handle('set-session-goal', (_e, { startGoal, increment } = {}) => {
   manualGoal = false
   pushOutput()
   return { startGoal: sessStartGoal, increment: sessIncrement, count, goal }
-})
-
-ipcMain.handle('reset-defaults', () => {
-  cfg.startGoal = config.DEFAULTS.startGoal
-  cfg.increment = config.DEFAULTS.increment
-  config.save(cfg)
-  return cfg
 })
 
 // On-demand all-time totals refresh (Total Subs card). Called by the renderer on
@@ -707,12 +720,6 @@ function logoutPlatform(platform) {
 }
 
 // --- OBS ---
-ipcMain.handle('obs-auto-detect', async () => {
-  obs = makeObs()
-  const ok = await obs.tryAutoDetect()
-  return ok
-})
-
 ipcMain.handle('obs-connect', async (_e, { host, port, password }) => {
   obs = makeObs()
   obsPassword = password || ''
@@ -829,12 +836,6 @@ ipcMain.handle('sync-sub-count', async (_e, on) => {
 })
 
 // --- test sub (onboarding + testing) ---
-ipcMain.handle('fire-test-sub', () => {
-  manualOffset += 1
-  recomputeCount()
-  pushOutput()
-})
-
 ipcMain.handle('reset-all-data', () => {
   stopTracking()
   try {

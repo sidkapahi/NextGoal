@@ -13,7 +13,6 @@ contextBridge.exposeInMainWorld('ng', {
   getState: () => ipcRenderer.invoke('get-state'),
   saveSettings: (patch) => ipcRenderer.invoke('save-settings', patch),
   setSessionGoal: (patch) => ipcRenderer.invoke('set-session-goal', patch),
-  resetDefaults: () => ipcRenderer.invoke('reset-defaults'),
 
   // platform auth (twitch | youtube | kick). Defaults to twitch so existing
   // call sites keep working.
@@ -24,7 +23,6 @@ contextBridge.exposeInMainWorld('ng', {
     ipcRenderer.invoke('set-platform-enabled', { platform, on }),
 
   // obs
-  obsAutoDetect: () => ipcRenderer.invoke('obs-auto-detect'),
   obsConnect: (opts) => ipcRenderer.invoke('obs-connect', opts),
   obsListSources: () => ipcRenderer.invoke('obs-list-sources'),
   obsCreateSource: (name) => ipcRenderer.invoke('obs-create-source', name),
@@ -42,7 +40,6 @@ contextBridge.exposeInMainWorld('ng', {
   resetCount: () => ipcRenderer.invoke('reset-count'),
   adjustCount: (n) => ipcRenderer.invoke('adjust-count', n),
   adjustGoal: (n) => ipcRenderer.invoke('adjust-goal', n),
-  fireTestSub: () => ipcRenderer.invoke('fire-test-sub'),
   syncSubCount: (on) => ipcRenderer.invoke('sync-sub-count', on),
 
   // windowing
@@ -64,6 +61,5 @@ contextBridge.exposeInMainWorld('ng', {
   // Platform login result events carry { platform, name, avatar } / { platform, message }.
   onLoginOk: (cb) => on('login-ok', cb),
   onLoginFailed: (cb) => on('login-failed', cb),
-  onUpdateAvailable: (cb) => on('update-available', cb),
   onUpdateDownloaded: (cb) => on('update-downloaded', cb),
 })

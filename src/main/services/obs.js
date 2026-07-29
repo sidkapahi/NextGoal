@@ -48,17 +48,6 @@ class OBSClient extends EventEmitter {
     this._setConnected(false)
   }
 
-  // Try the default local connection with no password. Used by onboarding
-  // auto-detect. Returns true on success, false (no throw) on failure.
-  async tryAutoDetect() {
-    try {
-      await this.connect({ host: 'localhost', port: 4455, password: '' })
-      return true
-    } catch {
-      return false
-    }
-  }
-
   async listTextSources() {
     this._assert()
     let resp
