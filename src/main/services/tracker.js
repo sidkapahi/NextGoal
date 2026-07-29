@@ -32,6 +32,7 @@ class SubTracker extends EventEmitter {
     this.ws = null
     this.stopped = false
     this.reconnectTimer = null
+    this.reconnectAttempts = 0
   }
 
   async start() {
@@ -108,6 +109,7 @@ class SubTracker extends EventEmitter {
             if (etype === 'channel.subscription.message' && !this.countResubs) continue
             await this._subscribe(etype, version, sessionId)
           }
+          this.reconnectAttempts = 0 // healthy again — reset the backoff
           this.emit('connected')
         } catch (e) {
           this.emit('error', e.message)
@@ -129,8 +131,13 @@ class SubTracker extends EventEmitter {
 
     this.ws.on('close', () => {
       if (this.stopped) return
-      this.emit('status', 'Reconnecting in 5s...')
-      this.reconnectTimer = setTimeout(() => this._connect(EVENTSUB_URL), 5000)
+      // Exponential backoff (5s → 60s cap) so a sustained Twitch/network outage
+      // isn't hammered every 5s. A transient blip reconnects on the first try
+      // and resets the backoff via 'connected', so live counting stays prompt.
+      const delay = Math.min(5000 * 2 ** this.reconnectAttempts, 60000)
+      this.reconnectAttempts++
+      this.emit('status', `Reconnecting in ${Math.round(delay / 1000)}s...`)
+      this.reconnectTimer = setTimeout(() => this._connect(EVENTSUB_URL), delay)
     })
 
     this.ws.on('error', () =>

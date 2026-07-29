@@ -487,9 +487,16 @@ function stopTracking() {
 // One platform's auth failing stops only that source; the others keep tracking.
 function handleAuthExpired(platform, msg) {
   stopSourceDriver(platform)
+  // The refresh token is dead (Twitch/Kick single-use tokens don't recover), so
+  // clear it: the platform now reads as logged-out and the UI prompts a re-login,
+  // instead of showing "connected" while every refresh keeps erroring.
+  config.clearToken(platform)
+  refreshTokens[platform] = null
   sources[platform].connected = false
+  allTimeTotals[platform] = null
   recomputeCount()
   pushOutput()
+  send('totals-changed', totalsSnapshot())
   send('auth-expired', { platform, message: msg })
   if (tracking && !anyDriverActive()) {
     tracking = false
