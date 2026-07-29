@@ -18,10 +18,14 @@ const EVENT_TYPES = [
 ]
 
 class SubTracker extends EventEmitter {
-  constructor({ broadcasterId, refreshToken, onNewRefreshToken, countResubs = true }) {
+  constructor({ broadcasterId, getRefreshToken, onNewRefreshToken, countResubs = true }) {
     super()
     this.broadcasterId = broadcasterId
-    this.refreshToken = refreshToken
+    // Read the refresh token lazily from the shared source of truth rather than
+    // snapshotting it: another component (e.g. the on-demand totals refresh) can
+    // rotate the single-use token between our refreshes, and a stale snapshot
+    // would then 400 and look like a spurious "login expired".
+    this.getRefreshToken = getRefreshToken
     this.onNewRefreshToken = onNewRefreshToken
     this.countResubs = countResubs
     this.accessToken = null
@@ -53,8 +57,7 @@ class SubTracker extends EventEmitter {
   }
 
   async _refresh() {
-    this.accessToken = await auth.refreshAccessToken(this.refreshToken, (t) => {
-      this.refreshToken = t
+    this.accessToken = await auth.refreshAccessToken(this.getRefreshToken(), (t) => {
       if (this.onNewRefreshToken) this.onNewRefreshToken(t)
     })
   }

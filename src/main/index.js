@@ -404,7 +404,7 @@ function startTracking() {
 function startTwitchTracker() {
   twitchTracker = new SubTracker({
     broadcasterId: cfg.broadcasterId,
-    refreshToken: refreshTokens.twitch,
+    getRefreshToken: () => refreshTokens.twitch,
     onNewRefreshToken: (t) => persistToken('twitch', t),
   })
   twitchTracker.on('subs', (n) => {
