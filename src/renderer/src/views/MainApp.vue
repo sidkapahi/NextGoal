@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import gearIcon from '../assets/icon-settings.svg'
 import StatusPill from '../components/StatusPill.vue'
@@ -182,6 +182,32 @@ function bumpCount(n) {
 function bumpGoal(n) {
   window.ng.adjustGoal(n)
 }
+
+// ---- click a number to type it directly ----
+const editing = ref(null) // 'count' | 'goal' | null
+const editValue = ref('')
+const editInput = ref(null)
+function startEdit(which) {
+  editing.value = which
+  editValue.value = String(which === 'count' ? count.value : goal.value)
+  nextTick(() => {
+    editInput.value?.focus()
+    editInput.value?.select()
+  })
+}
+function commitEdit() {
+  if (!editing.value) return
+  const n = parseInt(editValue.value, 10)
+  if (!Number.isNaN(n)) {
+    const target = Math.max(0, n)
+    if (editing.value === 'count') window.ng.adjustCount(target - count.value)
+    else window.ng.adjustGoal(target - goal.value)
+  }
+  editing.value = null
+}
+function cancelEdit() {
+  editing.value = null
+}
 function setBoost(v) {
   increment.value = v
   window.ng.setSessionGoal({ increment: v })
@@ -230,7 +256,18 @@ function openSettings() {
           <button class="pm pm--count" aria-label="Add to count" @click="bumpCount(1)">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
           </button>
-          <span class="num count" :class="{ live: tracking }">{{ count }}</span>
+          <input
+            v-if="editing === 'count'"
+            ref="editInput"
+            class="num count num-input"
+            :class="{ live: tracking }"
+            v-model="editValue"
+            inputmode="numeric"
+            @keydown.enter="commitEdit"
+            @keydown.esc="cancelEdit"
+            @blur="commitEdit"
+          />
+          <span v-else class="num count num-editable" :class="{ live: tracking }" @click="startEdit('count')">{{ count }}</span>
           <button class="pm pm--count" aria-label="Subtract from count" @click="bumpCount(-1)">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14" /></svg>
           </button>
@@ -240,7 +277,17 @@ function openSettings() {
           <button class="pm pm--goal" aria-label="Raise goal" @click="bumpGoal(1)">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
           </button>
-          <span class="num goal">{{ goal }}</span>
+          <input
+            v-if="editing === 'goal'"
+            ref="editInput"
+            class="num goal num-input"
+            v-model="editValue"
+            inputmode="numeric"
+            @keydown.enter="commitEdit"
+            @keydown.esc="cancelEdit"
+            @blur="commitEdit"
+          />
+          <span v-else class="num goal num-editable" @click="startEdit('goal')">{{ goal }}</span>
           <button class="pm pm--goal" aria-label="Lower goal" @click="bumpGoal(-1)">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14" /></svg>
           </button>
@@ -349,8 +396,10 @@ function openSettings() {
 
 /* Counter — Figma: gap 4 between columns; each column gap 28; number 128px;
    count text/primary (green when live), slash Light, goal brand. +/- 24px. */
+/* Fixed height (the single-digit height) so scaling the numbers down never
+   changes the counter's footprint — GOAL BOOST and SUBS stay put. */
 .counter { display: flex; align-items: center; justify-content: center; gap: var(--s-1);
-  padding: var(--s-4) 0; max-width: 100%; }
+  padding: var(--s-4) 0; max-width: 100%; height: 230px; flex: 0 0 auto; }
 .num-col { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 28px; }
 /* line-height 0.73 trims the box to the glyph (~94px), so the 28px gap to the
    +/- reads as the real distance to the number (not to the font's leading).
@@ -362,6 +411,19 @@ function openSettings() {
 .num.count.live { color: var(--status-ok); }
 .num.goal { color: var(--primary); }
 .num.slash { color: var(--text); font-weight: 300; }
+/* Click a number to type it directly. The extra selectors override the global
+   input focus/hover styles (border + focus ring) so it stays a bare number. */
+.num-editable { cursor: text; }
+.num-input, .num-input:focus, .num-input:hover {
+  font-family: inherit; text-align: center; background: transparent;
+  border: 0; outline: 0; box-shadow: none; padding: 0; margin: 0;
+  /* inputs clip to their content box, so give the glyphs a full line-box
+     (the span uses 0.73 for layout, which would clip the digits here) */
+  line-height: 1.1; height: auto;
+  /* auto-size to the typed digits (Chrome 123+/Electron 32) so nothing clips.
+     height:auto overrides the global fixed input height (var(--ctrl-input)). */
+  field-sizing: content; width: auto; min-width: 0.6ch; caret-color: var(--primary); }
+.num-input::-webkit-inner-spin-button, .num-input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
 
 .pm { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px;
   padding: 0; border: 0; background: transparent; cursor: pointer;
