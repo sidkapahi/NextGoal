@@ -196,14 +196,21 @@ function startEdit(which) {
   })
 }
 function commitEdit() {
-  if (!editing.value) return
-  const n = parseInt(editValue.value, 10)
-  if (!Number.isNaN(n)) {
-    const target = Math.max(0, n)
-    if (editing.value === 'count') window.ng.adjustCount(target - count.value)
-    else window.ng.adjustGoal(target - goal.value)
-  }
+  const which = editing.value
+  if (!which) return
+  // Close the editor FIRST so the +/- always come back — the reset must not
+  // depend on the IPC call below succeeding. (If adjustCount/adjustGoal ever
+  // throws, the field would otherwise stay stuck open with the +/- hidden.)
   editing.value = null
+  const n = parseInt(editValue.value, 10)
+  if (Number.isNaN(n)) return
+  const target = Math.max(0, n)
+  try {
+    if (which === 'count') window.ng.adjustCount(target - count.value)
+    else window.ng.adjustGoal(target - goal.value)
+  } catch (e) {
+    console.error('commitEdit: failed to apply value', e)
+  }
 }
 function cancelEdit() {
   editing.value = null
