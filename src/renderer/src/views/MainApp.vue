@@ -363,7 +363,7 @@ function openSettings() {
     <footer class="foot">
       <button
         class="btn btn--lg foot-start"
-        :class="tracking ? 'btn--danger' : 'btn--primary'"
+        :class="tracking ? 'btn--danger-outline' : 'btn--primary'"
         :disabled="!canStart"
         @click="toggle"
       >

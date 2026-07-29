@@ -84,6 +84,12 @@ body {
 .btn--ghost{background:transparent;color:var(--text-secondary);}
 .btn--ghost:hover:not(:disabled){background:var(--hover);color:var(--text);}
 .btn--danger{background:var(--err-500);color:#fff;}
+/* Soft destructive action (Stop, Logout) — red-tinted fill + red border/text.
+   Distinct from the solid --danger used for final confirmations (Reset / Delete
+   Everything). */
+.btn--danger-outline{background:color-mix(in srgb, var(--err-500) 15%, transparent);
+  color:var(--err-500);border-color:var(--err-500);}
+.btn--danger-outline:hover:not(:disabled){background:color-mix(in srgb, var(--err-500) 24%, transparent);}
 
 /* inputs */
 input:not([type]),input[type=text],input[type=password],input[type=number]{

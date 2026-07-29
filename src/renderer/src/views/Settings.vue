@@ -510,10 +510,6 @@ function dismissWarn(id) {
 .add-total input { width: 16px; height: 16px; accent-color: var(--primary); cursor: pointer; }
 .add-total .t-label { color: var(--text-secondary); }
 
-/* danger-outline logout — red text/border, transparent fill */
-.btn--danger-outline { background: transparent; color: var(--err-500); border-color: var(--err-500); }
-.btn--danger-outline:hover:not(:disabled) { background: color-mix(in srgb, var(--err-500) 12%, transparent); }
-
 .code-card { padding: var(--s-6); align-items: center; display: flex; flex-direction: column; gap: var(--s-2); width: 100%; }
 .code { font-size: 32px; font-weight: 700; letter-spacing: 2px; }
 </style>

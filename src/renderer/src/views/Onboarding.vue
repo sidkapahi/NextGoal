@@ -524,8 +524,6 @@ function backFromWebsocket() { editMode.value ? router.push('/app') : (step.valu
 .add-total { display: inline-flex; align-items: center; gap: var(--s-2); cursor: pointer; color: var(--text-secondary); }
 .add-total input { width: 16px; height: 16px; accent-color: var(--primary); cursor: pointer; }
 .add-total .t-label { color: var(--text-secondary); }
-.btn--danger-outline { background: transparent; color: var(--err-500); border-color: var(--err-500); }
-.btn--danger-outline:hover:not(:disabled) { background: color-mix(in srgb, var(--err-500) 12%, transparent); }
 
 /* amber warning banner (none-connected), dismissible */
 .banner { display: flex; align-items: flex-start; gap: var(--s-2); width: 100%;

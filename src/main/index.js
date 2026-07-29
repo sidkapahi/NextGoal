@@ -359,6 +359,10 @@ async function pushOutput() {
 
 // ---- tracking ----
 function startTracking() {
+  // Re-derive the runtime connected flags from the persisted tokens first: a
+  // transient auth error can leave sources[p].connected=false while the login is
+  // actually still valid, which would otherwise make Start silently do nothing.
+  for (const p of PLATFORMS) sources[p].connected = isConnected(p)
   const active = PLATFORMS.filter((p) => participates(sources[p]))
   if (!active.length) {
     send('need-login')
