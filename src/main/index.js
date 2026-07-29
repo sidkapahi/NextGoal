@@ -4,6 +4,25 @@ const { app, ipcMain, shell, Menu } = require('electron')
 const path = require('path')
 const fs = require('fs')
 
+// Dev only: load client credentials from a .env file at the project root into
+// process.env before the auth services are required (they read process.env at
+// module load). Zero-dependency parser; shell-provided vars always win. In a
+// packaged build these values are injected at build time, so this is skipped.
+if (!app.isPackaged) {
+  try {
+    const envPath = path.resolve(process.cwd(), '.env')
+    for (const line of fs.readFileSync(envPath, 'utf8').split(/\r?\n/)) {
+      const m = line.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$/)
+      if (!m) continue // skip blanks and comments
+      const key = m[1]
+      let val = m[2].trim().replace(/^["']|["']$/g, '') // strip surrounding quotes
+      if (process.env[key] === undefined) process.env[key] = val
+    }
+  } catch {
+    // no .env file — fine, vars may come from the shell instead
+  }
+}
+
 const windows = require('./windows')
 const { createTray, updateTray } = require('./tray')
 const config = require('./services/config')
