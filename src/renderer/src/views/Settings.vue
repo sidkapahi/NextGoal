@@ -437,10 +437,10 @@ function dismissWarn(id) {
 .tab.active { background: var(--surface-raised); border-color: var(--border); color: var(--text); }
 
 /* Amber warning banner (none-connected / per-platform), dismissible. */
-.banner { display: flex; align-items: flex-start; gap: var(--s-2); margin: var(--s-4) 40px 0;
+.banner { display: flex; align-items: center; gap: var(--s-2); margin: var(--s-4) 40px 0;
   padding: var(--s-3) var(--s-4); border: 1px solid var(--warn-500, var(--status-warn));
   border-radius: var(--r-md); background: color-mix(in srgb, var(--warn-500, var(--status-warn)) 12%, transparent); }
-.banner-ico { flex: 0 0 auto; width: 18px; height: 18px; margin-top: 1px; color: var(--warn-500, var(--status-warn)); }
+.banner-ico { flex: 0 0 auto; width: 18px; height: 18px; color: var(--warn-500, var(--status-warn)); }
 .banner-text { color: var(--warn-500, var(--status-warn)); flex: 1; }
 .banner-x { flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px;
   padding: 0; border: 0; background: transparent; cursor: pointer; color: var(--warn-500, var(--status-warn)); }

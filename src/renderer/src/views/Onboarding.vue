@@ -527,10 +527,10 @@ function backFromWebsocket() { editMode.value ? router.push('/app') : (step.valu
 .add-total .t-label { color: var(--text-secondary); }
 
 /* amber warning banner (none-connected), dismissible */
-.banner { display: flex; align-items: flex-start; gap: var(--s-2); width: 100%;
+.banner { display: flex; align-items: center; gap: var(--s-2); width: 100%;
   padding: var(--s-3) var(--s-4); border: 1px solid var(--warn-500, var(--status-warn));
   border-radius: var(--r-md); background: color-mix(in srgb, var(--warn-500, var(--status-warn)) 12%, transparent); }
-.banner-ico { flex: 0 0 auto; width: 18px; height: 18px; margin-top: 1px; color: var(--warn-500, var(--status-warn)); }
+.banner-ico { flex: 0 0 auto; width: 18px; height: 18px; color: var(--warn-500, var(--status-warn)); }
 .banner-text { color: var(--warn-500, var(--status-warn)); flex: 1; }
 .banner-x { flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px;
   padding: 0; border: 0; background: transparent; cursor: pointer; color: var(--warn-500, var(--status-warn)); }
