@@ -79,6 +79,12 @@ let manualOffset = 0
 let sessStartGoal = 5
 let sessIncrement = 5
 
+// The current starting rung of the goal ladder. Normally the session start goal
+// (or the increment while synced — a round grid over the big all-time total),
+// but picking a new goal boost anchors it to the goal on screen so the boost
+// only changes how far the goal climbs next, not the goal you're currently on.
+let goalBase = 5
+
 // Manual goal override: the right +/- on the counter set the goal directly.
 let manualGoal = false
 
@@ -153,7 +159,8 @@ app.whenReady().then(async () => {
   seedSources()
   sessStartGoal = cfg.startGoal
   sessIncrement = cfg.increment
-  goal = computeGoal(0, sessStartGoal, sessIncrement)
+  goalBase = sessStartGoal
+  goal = computeGoal(0, goalBase, sessIncrement)
 
   windows.createWindow({ preloadPath: path.join(__dirname, '../preload/index.js') })
 
@@ -344,9 +351,7 @@ async function pushOutput() {
     // keep the manually set goal
   } else {
     manualGoal = false
-    goal = synced
-      ? computeGoal(count, sessIncrement, sessIncrement)
-      : computeGoal(count, sessStartGoal, sessIncrement)
+    goal = computeGoal(count, goalBase, sessIncrement)
   }
   const text = `${count}/${goal}`
   send('count-changed', { count, goal, synced, session: sessionCount(), platforms: platformsSnapshot() })
@@ -385,6 +390,7 @@ function startTracking() {
   // A new session always starts in Current Session mode (count from 0); the
   // user can switch to Total Subs while live.
   synced = false
+  goalBase = sessStartGoal // fresh session: ladder starts from the session start goal
   manualOffset = 0
 
   for (const p of active) {
@@ -530,6 +536,7 @@ function resetCount() {
     else sources[p].sessionBase = null // re-baseline on the next poll
   }
   manualGoal = false
+  goalBase = sessStartGoal // reset drops any goal-boost anchor back to the start goal
   recomputeCount()
   pushOutput()
 }
@@ -573,8 +580,19 @@ ipcMain.handle('save-settings', (_e, patch) => {
 })
 
 ipcMain.handle('set-session-goal', (_e, { startGoal, increment } = {}) => {
-  if (startGoal != null) sessStartGoal = Math.max(1, Number(startGoal) || 1)
-  if (increment != null) sessIncrement = Math.max(1, Number(increment) || 1)
+  if (startGoal != null) {
+    // An explicit start-goal change re-bases the ladder from that value.
+    sessStartGoal = Math.max(1, Number(startGoal) || 1)
+    goalBase = sessStartGoal
+  }
+  if (increment != null) {
+    // Changing the goal boost must NOT move the goal you're currently on — it
+    // only changes how far the goal jumps once the count reaches it. Anchor the
+    // ladder at the goal on screen right now so it climbs by the new increment
+    // from here, instead of recomputing (which would move the goal now).
+    sessIncrement = Math.max(1, Number(increment) || 1)
+    goalBase = goal
+  }
   manualGoal = false
   pushOutput()
   return { startGoal: sessStartGoal, increment: sessIncrement, count, goal }
@@ -797,6 +815,7 @@ ipcMain.handle('adjust-goal', (_e, n) => adjustGoal(n))
 ipcMain.handle('sync-sub-count', async (_e, on) => {
   if (!on) {
     synced = false
+    goalBase = sessStartGoal // back to session mode: ladder from the start goal
     manualOffset = 0
     for (const p of PLATFORMS) {
       if (sources[p].live) {
@@ -828,6 +847,10 @@ ipcMain.handle('sync-sub-count', async (_e, on) => {
     }
   }
   synced = true
+  // Synced to the big all-time total: base the ladder on the increment so the
+  // goal is a round grid step above that total (a start goal of 5 is meaningless
+  // against thousands of subs).
+  goalBase = sessIncrement
   recomputeCount()
   pushOutput()
   return { ok: true, synced: true, count, goal }
@@ -855,7 +878,8 @@ ipcMain.handle('reset-all-data', () => {
   seedSources()
   sessStartGoal = cfg.startGoal
   sessIncrement = cfg.increment
-  goal = computeGoal(0, sessStartGoal, sessIncrement)
+  goalBase = sessStartGoal
+  goal = computeGoal(0, goalBase, sessIncrement)
   updateTray({ tracking: false, count, goal })
   return true
 })
