@@ -51,7 +51,7 @@ app.
 
 <div align="center">
 
-<a href="https://github.com/sidkapahi/NextGoal/releases/latest"><img src="docs/download-windows.svg" alt="Download for Windows" width="270" height="54"></a>
+<a href="https://github.com/sidkapahi/NextGoal/releases/latest"><img src="docs/download-windows.svg" alt="Download for Windows" width="272" height="53"></a>
 
 **[See all releases →](https://github.com/sidkapahi/NextGoal/releases)**
 
