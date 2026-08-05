@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Privacy Policy - NextGoal</title>
+<meta name="description" content="How NextGoal handles your data. Short version: it is a local desktop app, your account data stays on your device, and nothing is collected." />
+<link rel="icon" href="assets/icon.png" />
+<style>
+  @font-face{
+    font-family:'Satoshi';
+    src:url('assets/fonts/Satoshi-Variable.woff2') format('woff2');
+    font-weight:300 900; font-display:swap; font-style:normal;
+  }
+  :root{
+    --bg:#0b0711;--surface:#161022;--surface-2:#1c1430;
+    --line:rgba(255,255,255,.09);--line-strong:rgba(255,255,255,.16);
+    --text:#efeaf6;--muted:#a79cbd;--muted-2:#8478a0;
+    --accent:#6441A5;--accent-2:#8b62d6;--accent-soft:rgba(100,65,165,.18);
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--text);
+    font-family:'Satoshi',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+    -webkit-font-smoothing:antialiased;line-height:1.6;overflow-x:hidden}
+  a{color:var(--accent-2);text-decoration:none}
+  a:hover{text-decoration:underline}
+  :focus-visible{outline:2px solid var(--accent-2);outline-offset:3px;border-radius:6px}
+  img,svg{display:block;max-width:100%}
+
+  .amb{position:fixed;inset:0;z-index:-1;pointer-events:none;overflow:hidden}
+  .amb::before{content:"";position:absolute;top:-24%;left:50%;transform:translateX(-50%);
+    width:820px;height:820px;border-radius:50%;
+    background:radial-gradient(closest-side,rgba(100,65,165,.28),transparent 70%);filter:blur(20px)}
+
+  header.nav{position:sticky;top:0;z-index:50;background:rgba(11,7,17,.72);
+    backdrop-filter:blur(14px);border-bottom:1px solid var(--line)}
+  .nav-inner{max-width:760px;margin:0 auto;padding:0 24px;height:66px;display:flex;align-items:center;gap:16px}
+  .brand{display:flex;align-items:center;gap:11px;font-weight:800;font-size:18px;letter-spacing:-.01em;color:var(--text)}
+  .brand:hover{text-decoration:none}
+  .brand img{width:30px;height:30px;border-radius:8px}
+  .nav-inner .right{margin-left:auto;display:flex;gap:22px}
+  .nav-inner .right a{color:var(--muted);font-weight:600;font-size:14.5px}
+  .nav-inner .right a:hover{color:var(--text);text-decoration:none}
+
+  main{max-width:760px;margin:0 auto;padding:64px 24px 100px}
+  .doc-head{margin-bottom:40px}
+  h1{font-size:clamp(2.2rem,5vw,3rem);font-weight:900;letter-spacing:-.03em;margin:0 0 12px;line-height:1.05}
+  .updated{color:var(--muted-2);font-size:14px;font-weight:600}
+
+  .summary{background:linear-gradient(160deg,var(--accent-soft),var(--surface));
+    border:1px solid var(--line-strong);border-radius:16px;padding:24px 26px;margin:0 0 44px}
+  .summary h2{margin:0 0 10px;font-size:15px;letter-spacing:.1em;text-transform:uppercase;color:var(--accent-2)}
+  .summary p{margin:0;color:var(--text);font-size:16.5px}
+
+  section{margin:0 0 38px}
+  h2.s{font-size:1.4rem;font-weight:800;letter-spacing:-.02em;margin:0 0 12px}
+  p{color:var(--muted);margin:0 0 14px;font-size:16px}
+  p strong,li strong{color:var(--text);font-weight:700}
+  ul{margin:0 0 14px;padding-left:20px;color:var(--muted)}
+  li{margin:8px 0;font-size:16px}
+  code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.86em;
+    background:rgba(255,255,255,.06);padding:.12em .42em;border-radius:6px;color:#d8ccf0}
+  .divider{height:1px;background:var(--line);margin:44px 0}
+
+  footer{max-width:760px;margin:0 auto;padding:0 24px 60px;color:var(--muted-2);font-size:13.5px;
+    display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;border-top:1px solid var(--line);padding-top:24px}
+  footer a{color:var(--muted)}
+  @media (max-width:560px){.nav-inner .right a:not(:last-child){display:none}}
+</style>
+</head>
+<body>
+<div class="amb" aria-hidden="true"></div>
+
+<header class="nav">
+  <div class="nav-inner">
+    <a class="brand" href="index.html"><img src="assets/icon.png" alt="" /> NextGoal</a>
+    <div class="right">
+      <a href="index.html">Home</a>
+      <a href="https://github.com/sidkapahi/NextGoal">GitHub</a>
+    </div>
+  </div>
+</header>
+
+<main>
+  <div class="doc-head">
+    <h1>Privacy Policy</h1>
+    <div class="updated">Last updated August 5, 2026</div>
+  </div>
+
+  <div class="summary">
+    <h2>The short version</h2>
+    <p>NextGoal is a desktop app that runs on your own computer. It reads sub and member counts from the platforms you link, shows them on your stream, and keeps everything on your device. There is no NextGoal server, no analytics, and no tracking. Nothing is sold or shared.</p>
+  </div>
+
+  <section>
+    <h2 class="s">Who this covers</h2>
+    <p>This policy applies to the NextGoal desktop application ("NextGoal", "the app") published at <a href="https://github.com/sidkapahi/NextGoal">github.com/sidkapahi/NextGoal</a> and distributed through its GitHub Releases. NextGoal is an independent, open source project and is not affiliated with Twitch, YouTube, Kick, or OBS.</p>
+  </section>
+
+  <section>
+    <h2 class="s">What NextGoal accesses</h2>
+    <p>When you link a platform, NextGoal requests read-only access to the numbers it needs to build your goal. It does not request permission to post, moderate, or change anything on your account.</p>
+    <ul>
+      <li><strong>Twitch:</strong> your subscriber count, through the <code>channel:read:subscriptions</code> scope and Twitch EventSub.</li>
+      <li><strong>YouTube:</strong> your channel's membership and subscriber counts, through the <code>youtube.readonly</code> and <code>youtube.channel-memberships.creator</code> scopes.</li>
+      <li><strong>Kick:</strong> your subscription events, through the <code>user:read</code>, <code>channel:read</code>, and <code>events:subscribe</code> scopes.</li>
+      <li><strong>OBS:</strong> a local connection to your own OBS instance so the goal can be written to a text source.</li>
+    </ul>
+    <p>Linking each platform is optional. If you do not connect a platform, NextGoal never requests or receives its data.</p>
+  </section>
+
+  <section>
+    <h2 class="s">Where your data lives</h2>
+    <p>Everything stays on your computer. NextGoal talks directly from your device to each platform's API and to your local OBS. It does not route your data through any server run by the developer.</p>
+    <ul>
+      <li><strong>Access tokens</strong> are stored encrypted at rest using your operating system's secure storage (Windows Credential Manager, through Electron <code>safeStorage</code>).</li>
+      <li><strong>Your settings</strong> (goal, increment, and preferences) are saved in a local configuration file on your device.</li>
+      <li><strong>Your OBS password</strong>, if you set one, is held in memory only for the session and is never written to disk.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2 class="s">What NextGoal collects</h2>
+    <p><strong>Nothing.</strong> NextGoal has no backend, no accounts, and no analytics. The developer does not receive your subscriber counts, your tokens, your usage, or any personal information. App updates are downloaded from GitHub Releases; that request is handled by GitHub under its own privacy terms.</p>
+  </section>
+
+  <section>
+    <h2 class="s">Google user data and Limited Use</h2>
+    <p>NextGoal's use of information received from Google APIs adheres to the <a href="https://developers.google.com/terms/api-services-user-data-policy">Google API Services User Data Policy</a>, including its Limited Use requirements. YouTube data accessed through NextGoal is used solely to display your combined goal on your own device. It is never transferred to others, never used for advertising, and never read by a human, except as required for security or to comply with applicable law. NextGoal's use of YouTube also follows the <a href="https://www.youtube.com/t/terms">YouTube Terms of Service</a> and the <a href="https://policies.google.com/privacy">Google Privacy Policy</a>.</p>
+  </section>
+
+  <section>
+    <h2 class="s">Third-party services</h2>
+    <p>NextGoal connects to services you choose to link. Their handling of your data is governed by their own policies:</p>
+    <ul>
+      <li>Twitch, under the <a href="https://www.twitch.tv/p/legal/privacy-notice/">Twitch Privacy Notice</a></li>
+      <li>YouTube and Google, under the <a href="https://policies.google.com/privacy">Google Privacy Policy</a></li>
+      <li>Kick, under the <a href="https://kick.com/privacy-policy">Kick Privacy Policy</a></li>
+      <li>GitHub, which hosts the app's downloads and updates, under the <a href="https://docs.github.com/site-policy/privacy-policies/github-general-privacy-statement">GitHub Privacy Statement</a></li>
+    </ul>
+  </section>
+
+  <section>
+    <h2 class="s">Revoking access and removing your data</h2>
+    <p>You are in control at all times:</p>
+    <ul>
+      <li>Unlink a platform inside NextGoal, or revoke access from the platform directly: <a href="https://www.twitch.tv/settings/connections">Twitch connections</a>, <a href="https://myaccount.google.com/permissions">Google third-party access</a>, or your Kick account settings.</li>
+      <li>Uninstalling NextGoal removes the app and its locally stored tokens and settings from your device.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2 class="s">Children</h2>
+    <p>NextGoal is a tool for streamers and is not directed to children under 13. It does not knowingly collect data from anyone, including children.</p>
+  </section>
+
+  <section>
+    <h2 class="s">Changes to this policy</h2>
+    <p>If this policy changes, the updated version will be posted on this page with a new "last updated" date. Material changes will be noted in the project's release notes.</p>
+  </section>
+
+  <section>
+    <h2 class="s">Contact</h2>
+    <p>Questions about this policy or your data? Email <a href="mailto:skapahi12@gmail.com">skapahi12@gmail.com</a>, or open an issue on <a href="https://github.com/sidkapahi/NextGoal/issues">GitHub</a>.</p>
+  </section>
+</main>
+
+<footer>
+  <span>Copyright 2026 Sid Kapahi</span>
+  <span><a href="index.html">Home</a> &nbsp; <a href="https://github.com/sidkapahi/NextGoal">GitHub</a></span>
+</footer>
+</body>
+</html>
