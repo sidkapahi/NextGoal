@@ -7,7 +7,7 @@
 **One sub/member goal for OBS — Twitch subs, YouTube members, and Kick subs,
 combined into a single auto-incrementing counter.**
 
-Currently in Alpha · Built with [Electron](https://www.electronjs.org/) and [Vue 3](https://vuejs.org/)
+Out in Beta · Built with [Electron](https://www.electronjs.org/) and [Vue 3](https://vuejs.org/)
 
 ![Release](https://img.shields.io/github/v/release/sidkapahi/NextGoal?include_prereleases&label=release&color=6441a5)
 ![Platform](https://img.shields.io/badge/platform-Windows-0078D6)
