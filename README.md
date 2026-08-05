@@ -51,7 +51,7 @@ app.
 
 <div align="center">
 
-[![Download for Windows](https://img.shields.io/badge/Download%20for%20Windows-6441a5?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/sidkapahi/NextGoal/releases/latest)
+<a href="https://github.com/sidkapahi/NextGoal/releases/latest"><img src="docs/download-windows.svg" alt="Download for Windows" width="270" height="54"></a>
 
 **[See all releases →](https://github.com/sidkapahi/NextGoal/releases)**
 

@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="270" height="54" viewBox="0 0 270 54" role="img" aria-label="Download for Windows">
+  <title>Download for Windows</title>
+  <rect x="0.5" y="0.5" width="269" height="53" rx="10" fill="#6441a5"/>
+  <rect x="0.5" y="0.5" width="269" height="53" rx="10" fill="none" stroke="#ffffff" stroke-opacity="0.14"/>
+  <!-- Windows logo: four squares -->
+  <g fill="#ffffff">
+    <rect x="40" y="18" width="8.4" height="8.4" rx="1.2"/>
+    <rect x="50.4" y="18" width="8.4" height="8.4" rx="1.2"/>
+    <rect x="40" y="28.4" width="8.4" height="8.4" rx="1.2"/>
+    <rect x="50.4" y="28.4" width="8.4" height="8.4" rx="1.2"/>
+  </g>
+  <text x="164" y="33" text-anchor="middle" fill="#ffffff"
+        font-family="'Segoe UI', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif"
+        font-size="16" font-weight="700" letter-spacing="0.2">Download for Windows</text>
+</svg>
