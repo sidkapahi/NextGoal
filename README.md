@@ -19,6 +19,12 @@ Stable · Built with [Electron](https://www.electronjs.org/) and [Vue 3](https:/
 
 </div>
 
+> [!WARNING]
+> **This project was built with AI assistance (vibe coded).** While it works, the
+> code hasn't been professionally audited — use at your own risk. If you get a
+> chance, feel free to review the code before deploying. PRs and fixes are always
+> welcome!
+
 ## Overview
 
 NextGoal is a desktop goal tracker for live streamers. It combines **Twitch
@@ -51,7 +57,7 @@ app.
 
 <div align="center">
 
-<a href="https://github.com/sidkapahi/NextGoal/releases/latest/download/NextGoal-Setup.exe"><img src="docs/download-windows.svg" alt="Download NextGoal for Windows" width="272" height="53"></a>
+<a href="https://github.com/sidkapahi/NextGoal/releases/latest/download/NextGoal-Setup.exe"><img src="docs/assets/download-windows.svg" alt="Download NextGoal for Windows" width="272" height="53"></a>
 
 **[See all releases →](https://github.com/sidkapahi/NextGoal/releases)**
 

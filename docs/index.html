@@ -178,6 +178,14 @@
 
   /* footer */
   footer{border-top:1px solid var(--line);padding:56px 0 44px}
+  .foot-banner{display:flex;gap:14px;align-items:flex-start;
+    background:var(--surface);border:1px solid var(--line);
+    border-left:3px solid var(--accent-2);border-radius:var(--r-card);
+    padding:18px 20px;margin-bottom:44px}
+  .foot-banner svg{flex:none;color:var(--accent-2);margin-top:2px}
+  .foot-banner p{margin:0;color:var(--muted);font-size:14px;line-height:1.55;max-width:none}
+  .foot-banner strong{color:var(--text);font-weight:800}
+  .foot-banner a{color:var(--accent-2);text-decoration:underline}
   .foot{display:grid;grid-template-columns:1.4fr 1fr 1fr 1fr;gap:32px}
   .foot .brand{margin-bottom:14px}
   .foot p{color:var(--muted-2);font-size:13.5px;max-width:30ch;margin:0}
@@ -243,7 +251,7 @@
         <p class="lead">NextGoal is a free desktop app for streamers that combines your Twitch subs, YouTube channel members, and Kick subs into a single auto-incrementing goal, shown live on your stream through OBS.</p>
         <div class="hero-ctas">
           <a class="dlbtn js-dl" href="https://github.com/sidkapahi/NextGoal/releases/latest" aria-label="Download NextGoal for Windows">
-            <img src="download-windows.svg" alt="Download for Windows" width="272" height="53" />
+            <img src="assets/download-windows.svg" alt="Download for Windows" width="272" height="53" />
           </a>
           <a class="btn btn-ghost" href="https://github.com/sidkapahi/NextGoal">View on GitHub</a>
         </div>
@@ -358,7 +366,7 @@
       <h2>Put the next goal on stream.</h2>
       <div class="row">
         <a class="dlbtn js-dl" href="https://github.com/sidkapahi/NextGoal/releases/latest" aria-label="Download NextGoal for Windows">
-          <img src="download-windows.svg" alt="Download for Windows" width="272" height="53" />
+          <img src="assets/download-windows.svg" alt="Download for Windows" width="272" height="53" />
         </a>
         <a class="btn btn-ghost" href="https://github.com/sidkapahi/NextGoal">View on GitHub</a>
       </div>
@@ -369,6 +377,10 @@
 
 <footer>
   <div class="wrap">
+    <div class="foot-banner">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 9v4M12 17h.01M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg>
+      <p><strong>Built with AI assistance.</strong> NextGoal was largely vibe-coded &mdash; it works, but the code hasn't been professionally audited. I'm actively looking for developers and designers to help maintain and evolve it. Issues, PRs, and fixes are always welcome on <a href="https://github.com/sidkapahi/NextGoal">GitHub</a>.</p>
+    </div>
     <div class="foot">
       <div>
         <a class="brand" href="#top"><img src="assets/logo.svg" alt="" /> NextGoal</a>
@@ -392,18 +404,21 @@
         <ul>
           <li><a href="privacy.html">Privacy policy</a></li>
           <li><a href="terms.html">Terms of service</a></li>
-          <li><a href="https://github.com/sidkapahi/NextGoal/blob/main/LICENSE">License (MIT)</a></li>
         </ul>
       </div>
     </div>
     <div class="copyright">
-      <span>Copyright 2026 Sid Kapahi</span>
+      <span>Copyright <span id="year">2026</span> Kaplabs</span>
       <span>Not affiliated with Twitch, YouTube, Kick, or OBS.</span>
     </div>
   </div>
 </footer>
 
 <script>
+  // keep the copyright year current
+  var yr=document.getElementById('year');
+  if(yr){yr.textContent=new Date().getFullYear();}
+
   // mobile nav
   var t=document.getElementById('navtoggle'),l=document.getElementById('navlinks');
   if(t){t.addEventListener('click',function(){var o=l.classList.toggle('open');t.setAttribute('aria-expanded',o)})}
