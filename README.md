@@ -47,6 +47,30 @@ app.
 - **Lives in the tray.** A free-form, always-available window with a one-click
   tray toggle and idle/live status icon — built to sit quietly next to OBS.
 
+## Installation
+
+<div align="center">
+
+[![Download for Windows](https://img.shields.io/badge/Download%20for%20Windows-6441a5?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/sidkapahi/NextGoal/releases/latest)
+
+**[See all releases →](https://github.com/sidkapahi/NextGoal/releases)**
+
+</div>
+
+1. Download the latest **`NextGoal-Setup-<version>.exe`** from the
+   [latest release](https://github.com/sidkapahi/NextGoal/releases/latest).
+2. Run it — it's a **one-click, per-user installer**, so no admin rights are
+   needed and it installs just for you.
+3. On first launch, Windows SmartScreen may warn that the app is unsigned. Click
+   **More info → Run anyway** (see [Security](#security) for why that happens).
+4. Open NextGoal, link your Twitch account (YouTube and Kick are optional), set
+   your goal and increment, and point it at OBS.
+5. After that it **updates itself** — new releases download in the background and
+   install on quit.
+
+> **Windows only** for now. Prefer to build it yourself, or on another platform?
+> See [Run it](#run-it) and [Build an installer](#build-an-installer).
+
 ## Run it
 
 ```bash
@@ -190,6 +214,14 @@ against the real service.
 3. Replace the placeholder tray icons in `resources/` and add `build/icon.ico`
 4. Confirm `appId` and the NSIS `guid` in `electron-builder.yml` — changing them
    later breaks in-place updates
+5. **For public YouTube support, submit the OAuth consent screen for [Google
+   verification](https://support.google.com/cloud/answer/13463073)** and move it
+   to *Production*. Until then, YouTube linking shows an "unverified app" warning
+   and only added test users can get past it. The scopes NextGoal uses
+   (`youtube.readonly`, `youtube.channel-memberships.creator`) are *sensitive*,
+   not *restricted*, so verification is Google's brand review — a verified
+   domain, a hosted privacy policy, a homepage, an app logo, and a short demo
+   video — with **no paid third-party security assessment** required.
 
 ## License
 
