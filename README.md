@@ -15,7 +15,7 @@ Currently in Alpha · Built with [Electron](https://www.electronjs.org/) and [Vu
 ![License](https://img.shields.io/badge/license-MIT-blue)
 ![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen)
 
-[Download](#build-an-installer) · [Run it](#run-it) · [Architecture](#architecture) · [Security](#security) · [Contributing](#contributing)
+[Install](#installation) · [For devs](#for-devs) · [Architecture](#architecture) · [Security](#security) · [Contributing](#contributing)
 
 </div>
 
@@ -71,7 +71,9 @@ app.
 > **Windows only** for now. Prefer to build it yourself, or on another platform?
 > See [Run it](#run-it) and [Build an installer](#build-an-installer).
 
-## Run it
+## For devs
+
+### Run it
 
 ```bash
 npm install
@@ -101,7 +103,12 @@ npm run dev
   and add your channel's Google account as a **test user** to use it without full
   verification. The channel must be in the Partner Program with memberships on.
   Desktop-app clients carry a client secret; for an installed app Google treats
-  it as non-confidential (it ships in the binary).
+  it as non-confidential (it ships in the binary). To drop the "unverified app"
+  warning for the **public** (rather than just test users), submit the consent
+  screen for [Google verification](https://support.google.com/cloud/answer/13463073)
+  and publish it to *Production* — the scopes are *sensitive*, not *restricted*,
+  so it's brand review only (verified domain, privacy policy, homepage, logo,
+  demo video), with no paid security assessment.
 - **Kick** — a Kick Developer App (OAuth 2.1 + PKCE, a **confidential** client:
   client ID **and secret**). Register `http://localhost` as an allowed redirect
   and request the `user:read`, `channel:read`, and `events:subscribe` scopes.
@@ -112,7 +119,7 @@ npm run dev
 Client IDs are public info (they ship in the built app). The YouTube and Kick
 secrets are the installed-app kind treated as non-confidential.
 
-## Build an installer
+### Build an installer
 
 ```powershell
 $env:TWITCH_CLIENT_ID="your_id"
@@ -122,23 +129,6 @@ npm run dist:win
 Produces a one-click per-user installer in `release/`. The build injects your
 client ID into the bundle (`scripts/inject-client-id.mjs`) and refuses to build
 without it, so you can't ship a broken app.
-
-## Release (auto-update)
-
-Add the client credentials as **repository secrets** (`TWITCH_CLIENT_ID` is
-required; `YOUTUBE_CLIENT_ID`, `YOUTUBE_CLIENT_SECRET`, and `KICK_CLIENT_ID` are
-optional — the build injects whichever are present), then:
-
-```bash
-# bump version in package.json first
-git tag v0.1.0
-git push origin v0.1.0
-```
-
-GitHub Actions builds on Windows and publishes to Releases.
-[`electron-updater`](https://www.electron.build/auto-update) downloads new
-versions in the background and installs on quit. Alpha builds (`0.x` or
-`-alpha` tags) receive prereleases; stable builds only get stable.
 
 ## Architecture
 
@@ -206,22 +196,6 @@ npm test        # run the headless test suites before opening a PR
 Open an issue for bugs or ideas, and keep pull requests focused. If a change
 touches platform auth, OBS output, or the updater, please note how you tested it
 against the real service.
-
-## Before first public release
-
-1. Register the Twitch app as **Public** type, get the client ID
-2. Add `TWITCH_CLIENT_ID` repo secret
-3. Replace the placeholder tray icons in `resources/` and add `build/icon.ico`
-4. Confirm `appId` and the NSIS `guid` in `electron-builder.yml` — changing them
-   later breaks in-place updates
-5. **For public YouTube support, submit the OAuth consent screen for [Google
-   verification](https://support.google.com/cloud/answer/13463073)** and move it
-   to *Production*. Until then, YouTube linking shows an "unverified app" warning
-   and only added test users can get past it. The scopes NextGoal uses
-   (`youtube.readonly`, `youtube.channel-memberships.creator`) are *sensitive*,
-   not *restricted*, so verification is Google's brand review — a verified
-   domain, a hosted privacy policy, a homepage, an app logo, and a short demo
-   video — with **no paid third-party security assessment** required.
 
 ## License
 
