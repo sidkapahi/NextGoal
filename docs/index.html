@@ -227,7 +227,7 @@
       <a href="#obs">OBS</a>
       <a href="https://github.com/sidkapahi/NextGoal">GitHub</a>
     </nav>
-    <a class="btn btn-primary nav-cta" href="https://github.com/sidkapahi/NextGoal/releases/latest">Download</a>
+    <a class="btn btn-primary nav-cta js-dl" href="https://github.com/sidkapahi/NextGoal/releases/latest">Download</a>
     <button class="btn btn-ghost nav-toggle" id="navtoggle" aria-label="Menu" aria-expanded="false">Menu</button>
   </div>
 </header>
@@ -241,7 +241,7 @@
         <h1>One goal.<br /><em>Every platform.</em></h1>
         <p class="lead">NextGoal blends your Twitch subs, YouTube members, and Kick subs into a single live goal on stream.</p>
         <div class="hero-ctas">
-          <a class="dlbtn" href="https://github.com/sidkapahi/NextGoal/releases/latest" aria-label="Download NextGoal for Windows">
+          <a class="dlbtn js-dl" href="https://github.com/sidkapahi/NextGoal/releases/latest" aria-label="Download NextGoal for Windows">
             <img src="download-windows.svg" alt="Download for Windows" width="272" height="53" />
           </a>
           <a class="btn btn-ghost" href="https://github.com/sidkapahi/NextGoal">View on GitHub</a>
@@ -356,7 +356,7 @@
     <div class="wrap reveal">
       <h2>Put the next goal on stream.</h2>
       <div class="row">
-        <a class="dlbtn" href="https://github.com/sidkapahi/NextGoal/releases/latest" aria-label="Download NextGoal for Windows">
+        <a class="dlbtn js-dl" href="https://github.com/sidkapahi/NextGoal/releases/latest" aria-label="Download NextGoal for Windows">
           <img src="download-windows.svg" alt="Download for Windows" width="272" height="53" />
         </a>
         <a class="btn btn-ghost" href="https://github.com/sidkapahi/NextGoal">View on GitHub</a>
@@ -438,6 +438,50 @@
   }else if(prog){
     prog.style.strokeDashoffset=578*(1-0.891);
   }
+
+  // Download: resolve the latest .exe asset at click time so the link always
+  // points at the current installer, whatever its version. Falls back to the
+  // releases page (the anchor href) if the API is unreachable or JS is off.
+  (function(){
+    var API='https://api.github.com/repos/sidkapahi/NextGoal/releases/latest';
+    var resolved=null;   // cached browser_download_url once we have it
+    var pending=null;    // in-flight fetch promise
+
+    function findExe(rel){
+      var assets=(rel&&rel.assets)||[];
+      for(var i=0;i<assets.length;i++){
+        var n=assets[i].name||'';
+        if(/\.exe$/i.test(n)&&!/\.blockmap$/i.test(n)) return assets[i].browser_download_url;
+      }
+      return null;
+    }
+
+    function fetchExe(){
+      if(resolved) return Promise.resolve(resolved);
+      if(pending) return pending;
+      pending=fetch(API,{headers:{Accept:'application/vnd.github+json'}})
+        .then(function(r){return r.ok?r.json():Promise.reject(r.status)})
+        .then(function(rel){resolved=findExe(rel);pending=null;return resolved;})
+        .catch(function(){pending=null;return null;});
+      return pending;
+    }
+
+    // Warm the cache on load so the first click is instant (best effort).
+    fetchExe();
+
+    document.querySelectorAll('.js-dl').forEach(function(a){
+      a.addEventListener('click',function(e){
+        // Let modified clicks (new tab, etc.) behave normally.
+        if(e.metaKey||e.ctrlKey||e.shiftKey||e.altKey||e.button!==0) return;
+        if(resolved){window.location.href=resolved;e.preventDefault();return;}
+        // Not resolved yet: hold the navigation, resolve, then go.
+        e.preventDefault();
+        fetchExe().then(function(url){
+          window.location.href=url||a.href; // fall back to releases page
+        });
+      });
+    });
+  })();
 </script>
 </body>
 </html>

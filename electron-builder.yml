@@ -32,7 +32,10 @@ win:
     - target: nsis
       arch: [x64]
   icon: build/icon.ico
-  artifactName: ${productName}-Setup-${version}.${ext}
+  # Version-less name so a stable releases/latest/download/NextGoal-Setup.exe
+  # URL always resolves to the newest installer (used by the README/site links).
+  # The version still lives in latest.yml, which is what electron-updater reads.
+  artifactName: ${productName}-Setup.${ext}
 
 # Auto-update source. Published as full (latest) GitHub releases.
 publish:
