@@ -51,14 +51,14 @@ app.
 
 <div align="center">
 
-<a href="https://github.com/sidkapahi/NextGoal/releases/latest"><img src="docs/download-windows.svg" alt="Download for Windows" width="272" height="53"></a>
+<a href="https://github.com/sidkapahi/NextGoal/releases/latest/download/NextGoal-Setup.exe"><img src="docs/download-windows.svg" alt="Download NextGoal for Windows" width="272" height="53"></a>
 
 **[See all releases →](https://github.com/sidkapahi/NextGoal/releases)**
 
 </div>
 
-1. Download the latest **`NextGoal-Setup-<version>.exe`** from the
-   [latest release](https://github.com/sidkapahi/NextGoal/releases/latest).
+1. Download **`NextGoal-Setup.exe`** — the button above grabs it straight from
+   the [latest release](https://github.com/sidkapahi/NextGoal/releases/latest).
 2. Run it — it's a **one-click, per-user installer**, so no admin rights are
    needed and it installs just for you.
 3. On first launch, Windows SmartScreen may warn that the app is unsigned. Click
