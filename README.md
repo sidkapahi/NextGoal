@@ -1,15 +1,51 @@
+<div align="center">
+
+<img src="build/icon.png" alt="NextGoal" width="120" />
+
 # NextGoal
 
-An auto-incrementing sub/member goal for OBS that **combines Twitch subs,
-YouTube members, and Kick subs into one counter**. Starts at 0 each stream (or
-syncs to your current totals); every time you hit the goal it raises itself by
-your chosen increment. Built with Electron + Vue, runs as a free-form desktop
-window with a tray icon for quick show/hide, feeds OBS over obs-websocket (no
-plugin) with a text-file fallback.
+**One sub/member goal for OBS — Twitch subs, YouTube members, and Kick subs,
+combined into a single auto-incrementing counter.**
 
-Twitch counts in real time (EventSub); YouTube and Kick are polled for their
-current totals on an interval (default 60s), since neither offers a practical
-real-time feed for a desktop app.
+Currently in Alpha · Built with [Electron](https://www.electronjs.org/) and [Vue 3](https://vuejs.org/)
+
+![Release](https://img.shields.io/github/v/release/sidkapahi/NextGoal?include_prereleases&label=release&color=6441a5)
+![Platform](https://img.shields.io/badge/platform-Windows-0078D6)
+![Built with](https://img.shields.io/badge/built%20with-Electron%20%2B%20Vue-42b883)
+![License](https://img.shields.io/badge/license-MIT-blue)
+![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen)
+
+[Download](#build-an-installer) · [Run it](#run-it) · [Architecture](#architecture) · [Security](#security) · [Contributing](#contributing)
+
+</div>
+
+## Overview
+
+NextGoal is a desktop goal tracker for live streamers. It combines **Twitch
+subs, YouTube members, and Kick subs into one counter** and shows it on stream
+through OBS. It starts at 0 each stream (or syncs to your current totals), and
+every time you hit the goal it raises itself by your chosen increment — so
+there's always a next goal.
+
+It runs as a free-form desktop window with a tray icon for quick show/hide, and
+feeds OBS over [obs-websocket](https://github.com/obsproject/obs-websocket) with
+no plugin required (plus a text-file fallback). Twitch counts in **real time**
+(EventSub); YouTube and Kick are polled for their current totals on an interval
+(default 60s), since neither offers a practical real-time feed for a desktop
+app.
+
+**What makes NextGoal different:**
+
+- **One counter, three platforms.** Twitch, YouTube, and Kick sub/member counts
+  roll into a single number. Link whichever platforms you stream on; the ones
+  you skip simply don't appear.
+- **No OBS plugin.** It talks to OBS over obs-websocket and can also write a
+  plain text file, so it works with any OBS setup without installing anything.
+- **No client secret to leak.** Twitch uses Device Code Flow with a *Public*
+  client — nothing sensitive is baked into the binary, and the access token is
+  encrypted at rest.
+- **Lives in the tray.** A free-form, always-available window with a one-click
+  tray toggle and idle/live status icon — built to sit quietly next to OBS.
 
 ## Run it
 
@@ -54,12 +90,14 @@ secrets are the installed-app kind treated as non-confidential.
 
 ## Build an installer
 
-```bash
+```powershell
 $env:TWITCH_CLIENT_ID="your_id"
 npm run dist:win
 ```
 
-Produces a one-click per-user installer in `release/`. The build injects your client ID into the bundle (`scripts/inject-client-id.mjs`) and refuses to build without it, so you can't ship a broken app.
+Produces a one-click per-user installer in `release/`. The build injects your
+client ID into the bundle (`scripts/inject-client-id.mjs`) and refuses to build
+without it, so you can't ship a broken app.
 
 ## Release (auto-update)
 
@@ -73,13 +111,18 @@ git tag v0.1.0
 git push origin v0.1.0
 ```
 
-GitHub Actions builds on Windows and publishes to Releases. `electron-updater` downloads new versions in the background and installs on quit. Alpha builds (0.x or `-alpha` tags) receive prereleases; stable builds only get stable.
+GitHub Actions builds on Windows and publishes to Releases.
+[`electron-updater`](https://www.electron.build/auto-update) downloads new
+versions in the background and installs on quit. Alpha builds (`0.x` or
+`-alpha` tags) receive prereleases; stable builds only get stable.
 
 ## Architecture
 
 **Main process** (`src/main`)
+
 - `index.js` — wires everything, owns app state, all IPC
-- `windows.js` — one BrowserWindow: framed onboarding + free-form app window. Closing hides to the tray; quit from the tray menu.
+- `windows.js` — one BrowserWindow: framed onboarding + free-form app window.
+  Closing hides to the tray; quit from the tray menu.
 - `tray.js` — left-click shows/hides the window, right-click menu, idle/live icon
 - `services/`
   - `twitchAuth.js` — Device Code Flow, no client secret, single-use refresh handling
@@ -89,17 +132,34 @@ GitHub Actions builds on Windows and publishes to Releases. `electron-updater` d
   - `goal.js` — the increment math
   - `updater.js` — electron-updater wrapper, prerelease-aware
 
-**Preload** (`src/preload/index.js`) — the only bridge. Renderer sees `window.ng` and nothing else. `contextIsolation` on, `nodeIntegration` off.
+**Preload** (`src/preload/index.js`) — the only bridge. Renderer sees
+`window.ng` and nothing else. `contextIsolation` on, `nodeIntegration` off.
 
-**Renderer** (`src/renderer`) — Vue 3 + hash router. `/onboarding` and `/app`. The main process picks which loads. Never sees the token, never opens a socket.
+**Renderer** (`src/renderer`) — Vue 3 + hash router. `/onboarding` and `/app`.
+The main process picks which loads. Never sees the token, never opens a socket.
+
+### Project structure
+
+| Directory        | Purpose                                                             |
+| ---------------- | ------------------------------------------------------------------- |
+| `src/main/`      | Electron main process: app state, IPC, tray, and platform services  |
+| `src/preload/`   | The single context-isolated bridge exposed to the renderer          |
+| `src/renderer/`  | Vue 3 UI — onboarding, main app window, and settings                |
+| `scripts/`       | Build helpers (client-ID injection) and platform auth probes        |
+| `test/`          | Headless tests — anchor positioning, sources, and updater logic     |
+| `build/`         | Installer icons and packaging assets                                |
 
 ## Security
 
-- **No client secret.** Device Code Flow + Public client. Nothing extractable from the binary.
-- **Token encrypted at rest** via `safeStorage` (Windows Credential Manager). Falls back to a file with a visible warning only if encryption is unavailable.
-- **Minimal scope**: `channel:read:subscriptions`. Can't post, moderate, or change anything.
+- **No client secret.** Device Code Flow + Public client. Nothing extractable
+  from the binary.
+- **Token encrypted at rest** via `safeStorage` (Windows Credential Manager).
+  Falls back to a file with a visible warning only if encryption is unavailable.
+- **Minimal scope**: `channel:read:subscriptions`. Can't post, moderate, or
+  change anything.
 - **OBS password held in memory only**, never written to disk.
-- Unsigned build → SmartScreen warns on first run. Code signing (~$100–300/yr) is the fix if you want it gone.
+- Unsigned build → SmartScreen warns on first run. Code signing (~$100–300/yr)
+  is the fix if you want it gone.
 
 ## Test
 
@@ -109,9 +169,28 @@ npm test    # anchor positioning + updater prerelease logic
 
 Both suites run headless (electron stubbed), no display needed.
 
+## Contributing
+
+Contributions are welcome. To get started:
+
+```bash
+npm install
+npm run dev     # hot-reload dev build (needs TWITCH_CLIENT_ID — see "Run it")
+npm test        # run the headless test suites before opening a PR
+```
+
+Open an issue for bugs or ideas, and keep pull requests focused. If a change
+touches platform auth, OBS output, or the updater, please note how you tested it
+against the real service.
+
 ## Before first public release
 
 1. Register the Twitch app as **Public** type, get the client ID
 2. Add `TWITCH_CLIENT_ID` repo secret
 3. Replace the placeholder tray icons in `resources/` and add `build/icon.ico`
-4. Confirm `appId` and the NSIS `guid` in `electron-builder.yml` — changing them later breaks in-place updates
+4. Confirm `appId` and the NSIS `guid` in `electron-builder.yml` — changing them
+   later breaks in-place updates
+
+## License
+
+[MIT](LICENSE) © Sid Kapahi
