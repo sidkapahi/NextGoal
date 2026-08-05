@@ -7,7 +7,7 @@
 **One sub/member goal for OBS — Twitch subs, YouTube members, and Kick subs,
 combined into a single auto-incrementing counter.**
 
-Currently in Alpha · Built with [Electron](https://www.electronjs.org/) and [Vue 3](https://vuejs.org/)
+Stable · Built with [Electron](https://www.electronjs.org/) and [Vue 3](https://vuejs.org/)
 
 ![Release](https://img.shields.io/github/v/release/sidkapahi/NextGoal?include_prereleases&label=release&color=6441a5)
 ![Platform](https://img.shields.io/badge/platform-Windows-0078D6)
@@ -51,7 +51,7 @@ app.
 
 <div align="center">
 
-[![Download for Windows](https://img.shields.io/badge/Download%20for%20Windows-6441a5?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/sidkapahi/NextGoal/releases/latest)
+<a href="https://github.com/sidkapahi/NextGoal/releases/latest"><img src="docs/download-windows.svg" alt="Download for Windows" width="272" height="53"></a>
 
 **[See all releases →](https://github.com/sidkapahi/NextGoal/releases)**
 
