@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Privacy Policy - NextGoal</title>
-<meta name="description" content="How NextGoal handles your data. Short version: it is a local desktop app, your account data stays on your device, and nothing is collected." />
+<title>Terms of Service - NextGoal</title>
+<meta name="description" content="Terms of service for NextGoal, a free and open source desktop app. Provided as is under the MIT License." />
 <link rel="icon" href="assets/icon.png" />
 <style>
   @font-face{
@@ -78,7 +78,6 @@
   li{margin:8px 0;font-size:16px}
   code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.86em;
     background:rgba(255,255,255,.06);padding:.12em .42em;border-radius:6px;color:#d8ccf0}
-  .divider{height:1px;background:var(--line);margin:44px 0}
 
   footer{max-width:760px;margin:0 auto;padding:0 24px 60px;color:var(--muted-2);font-size:13.5px;
     display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;border-top:1px solid var(--line);padding-top:24px}
@@ -104,91 +103,70 @@
 
 <main>
   <div class="doc-head">
-    <h1>Privacy Policy</h1>
+    <h1>Terms of Service</h1>
     <div class="updated">Last updated August 5, 2026</div>
   </div>
 
   <div class="summary">
     <h2>The short version</h2>
-    <p>NextGoal is a desktop app that runs on your own computer. It reads sub and member counts from the platforms you link, shows them on your stream, and keeps everything on your device. There is no NextGoal server, no analytics, and no tracking. Nothing is sold or shared.</p>
+    <p>NextGoal is free, open source software provided as is under the MIT License. By downloading or using it, you agree to these terms and to the terms of the platforms you connect it to. There are no accounts, no subscriptions, and no fees.</p>
   </div>
 
   <section>
-    <h2 class="s">Who this covers</h2>
-    <p>This policy applies to the NextGoal desktop application ("NextGoal", "the app") published at <a href="https://github.com/sidkapahi/NextGoal">github.com/sidkapahi/NextGoal</a> and distributed through its GitHub Releases. NextGoal is an independent, open source project and is not affiliated with Twitch, YouTube, Kick, or OBS.</p>
+    <h2 class="s">Acceptance</h2>
+    <p>These terms are a legal agreement between you and the NextGoal project ("NextGoal", "we") covering the NextGoal desktop application published at <a href="https://github.com/sidkapahi/NextGoal">github.com/sidkapahi/NextGoal</a> and distributed through its GitHub Releases. By installing or using NextGoal, you accept these terms. If you do not agree, do not use the app.</p>
   </section>
 
   <section>
-    <h2 class="s">What NextGoal accesses</h2>
-    <p>When you link a platform, NextGoal requests read-only access to the numbers it needs to build your goal. It does not request permission to post, moderate, or change anything on your account.</p>
+    <h2 class="s">The software and your license</h2>
+    <p>NextGoal is released under the <a href="https://github.com/sidkapahi/NextGoal/blob/main/LICENSE">MIT License</a>. That license governs your right to use, copy, modify, and distribute the software, and it prevails if anything here appears to conflict with it. You may run NextGoal for personal or commercial streaming at no cost.</p>
+  </section>
+
+  <section>
+    <h2 class="s">Connected platforms are your responsibility</h2>
+    <p>NextGoal connects to accounts and services you choose to link, including Twitch, YouTube, Kick, and your local OBS. You are responsible for using those services within their own terms and for having the rights to the accounts you connect:</p>
     <ul>
-      <li><strong>Twitch:</strong> your subscriber count, through the <code>channel:read:subscriptions</code> scope and Twitch EventSub.</li>
-      <li><strong>YouTube:</strong> your channel's membership and subscriber counts, through the <code>youtube.readonly</code> and <code>youtube.channel-memberships.creator</code> scopes.</li>
-      <li><strong>Kick:</strong> your subscription events, through the <code>user:read</code>, <code>channel:read</code>, and <code>events:subscribe</code> scopes.</li>
-      <li><strong>OBS:</strong> a local connection to your own OBS instance so the goal can be written to a text source.</li>
+      <li><a href="https://www.twitch.tv/p/legal/terms-of-service/">Twitch Terms of Service</a></li>
+      <li><a href="https://www.youtube.com/t/terms">YouTube Terms of Service</a> and the <a href="https://developers.google.com/terms/api-services-user-data-policy">Google API Services User Data Policy</a></li>
+      <li><a href="https://kick.com/terms-of-service">Kick Terms of Service</a></li>
     </ul>
-    <p>Linking each platform is optional. If you do not connect a platform, NextGoal never requests or receives its data.</p>
+    <p>NextGoal is an independent project and is not affiliated with, endorsed by, or sponsored by Twitch, YouTube, Google, Kick, or OBS. All product names and logos are the property of their respective owners.</p>
   </section>
 
   <section>
-    <h2 class="s">Where your data lives</h2>
-    <p>Everything stays on your computer. NextGoal talks directly from your device to each platform's API and to your local OBS. It does not route your data through any server run by the developer.</p>
-    <ul>
-      <li><strong>Access tokens</strong> are stored encrypted at rest using your operating system's secure storage (Windows Credential Manager, through Electron <code>safeStorage</code>).</li>
-      <li><strong>Your settings</strong> (goal, increment, and preferences) are saved in a local configuration file on your device.</li>
-      <li><strong>Your OBS password</strong>, if you set one, is held in memory only for the session and is never written to disk.</li>
-    </ul>
+    <h2 class="s">Acceptable use</h2>
+    <p>Use NextGoal lawfully and only with accounts you are entitled to access. Do not use it to violate any platform's terms, to misrepresent data, or to interfere with the services it connects to. You are responsible for how you display and use the counts NextGoal produces on your stream.</p>
   </section>
 
   <section>
-    <h2 class="s">What NextGoal collects</h2>
-    <p><strong>Nothing.</strong> NextGoal has no backend, no accounts, and no analytics. The developer does not receive your subscriber counts, your tokens, your usage, or any personal information. App updates are downloaded from GitHub Releases; that request is handled by GitHub under its own privacy terms.</p>
+    <h2 class="s">No warranty</h2>
+    <p>NextGoal is provided <strong>"as is" and "as available", without warranty of any kind</strong>, express or implied, including but not limited to warranties of merchantability, fitness for a particular purpose, and non-infringement. We do not warrant that the app will be uninterrupted, error free, or that platform counts will always be accurate or available, since they depend on third-party services outside our control.</p>
   </section>
 
   <section>
-    <h2 class="s">Google user data and Limited Use</h2>
-    <p>NextGoal's use of information received from Google APIs adheres to the <a href="https://developers.google.com/terms/api-services-user-data-policy">Google API Services User Data Policy</a>, including its Limited Use requirements. YouTube data accessed through NextGoal is used solely to display your combined goal on your own device. It is never transferred to others, never used for advertising, and never read by a human, except as required for security or to comply with applicable law. NextGoal's use of YouTube also follows the <a href="https://www.youtube.com/t/terms">YouTube Terms of Service</a> and the <a href="https://policies.google.com/privacy">Google Privacy Policy</a>.</p>
+    <h2 class="s">Limitation of liability</h2>
+    <p>To the maximum extent permitted by law, in no event shall the authors or copyright holders be liable for any claim, damages, or other liability, whether in an action of contract, tort, or otherwise, arising from, out of, or in connection with NextGoal or the use of or other dealings in NextGoal. Because the app is free and runs on your own device, you assume responsibility for how you use it.</p>
   </section>
 
   <section>
-    <h2 class="s">Third-party services</h2>
-    <p>NextGoal connects to services you choose to link. Their handling of your data is governed by their own policies:</p>
-    <ul>
-      <li>Twitch, under the <a href="https://www.twitch.tv/p/legal/privacy-notice/">Twitch Privacy Notice</a></li>
-      <li>YouTube and Google, under the <a href="https://policies.google.com/privacy">Google Privacy Policy</a></li>
-      <li>Kick, under the <a href="https://kick.com/privacy-policy">Kick Privacy Policy</a></li>
-      <li>GitHub, which hosts the app's downloads and updates, under the <a href="https://docs.github.com/site-policy/privacy-policies/github-general-privacy-statement">GitHub Privacy Statement</a></li>
-    </ul>
+    <h2 class="s">Privacy</h2>
+    <p>NextGoal keeps your data on your device and collects nothing. How the app handles data is described in the <a href="privacy.html">Privacy Policy</a>, which is part of these terms.</p>
   </section>
 
   <section>
-    <h2 class="s">Revoking access and removing your data</h2>
-    <p>You are in control at all times:</p>
-    <ul>
-      <li>Unlink a platform inside NextGoal, or revoke access from the platform directly: <a href="https://www.twitch.tv/settings/connections">Twitch connections</a>, <a href="https://myaccount.google.com/permissions">Google third-party access</a>, or your Kick account settings.</li>
-      <li>Uninstalling NextGoal removes the app and its locally stored tokens and settings from your device.</li>
-    </ul>
-  </section>
-
-  <section>
-    <h2 class="s">Children</h2>
-    <p>NextGoal is a tool for streamers and is not directed to children under 13. It does not knowingly collect data from anyone, including children.</p>
-  </section>
-
-  <section>
-    <h2 class="s">Changes to this policy</h2>
-    <p>If this policy changes, the updated version will be posted on this page with a new "last updated" date. Material changes will be noted in the project's release notes.</p>
+    <h2 class="s">Changes to these terms</h2>
+    <p>These terms may be updated as the app evolves. The current version is always posted on this page with the "last updated" date above. Continuing to use NextGoal after a change means you accept the revised terms.</p>
   </section>
 
   <section>
     <h2 class="s">Contact</h2>
-    <p>Questions about this policy or your data? Email <a href="mailto:skapahi12@gmail.com">skapahi12@gmail.com</a>, or open an issue on <a href="https://github.com/sidkapahi/NextGoal/issues">GitHub</a>.</p>
+    <p>Questions about these terms? Email <a href="mailto:skapahi12@gmail.com">skapahi12@gmail.com</a>, or open an issue on <a href="https://github.com/sidkapahi/NextGoal/issues">GitHub</a>.</p>
   </section>
 </main>
 
 <footer>
   <span>Copyright 2026 Sid Kapahi</span>
-  <span class="foot-inline"><a href="index.html">Home</a> &nbsp; <a href="terms.html">Terms</a> &nbsp; <a class="hide-sm" href="https://github.com/sidkapahi/NextGoal">GitHub</a></span>
+  <span class="foot-inline"><a href="index.html">Home</a> &nbsp; <a href="privacy.html">Privacy</a> &nbsp; <a class="hide-sm" href="https://github.com/sidkapahi/NextGoal">GitHub</a></span>
 </footer>
 
 <script>
