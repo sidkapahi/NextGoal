@@ -3,317 +3,398 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>NextGoal - One number, every platform</title>
-<meta name="description" content="NextGoal blends your Twitch, YouTube, and Kick subscribers into a single live goal for OBS. Free and open source, Windows." />
+<title>NextGoal - One goal, every platform</title>
+<meta name="description" content="NextGoal blends your Twitch subs, YouTube members, and Kick subs into a single auto-incrementing goal on stream, straight into OBS. Free and open source." />
 <link rel="icon" href="assets/icon.png" />
-<meta property="og:title" content="NextGoal - One number, every platform" />
-<meta property="og:description" content="Twitch subs, YouTube members, and Kick subs, counted as one live goal for OBS." />
+<meta property="og:title" content="NextGoal - One goal, every platform" />
+<meta property="og:description" content="Twitch subs, YouTube members, and Kick subs, combined into one live goal for OBS." />
 <meta property="og:image" content="assets/icon.png" />
 <style>
-/* Hallmark · genre: modern-minimal · macrostructure: Stat-Led · nav: N9 edge-aligned · footer: Ft5 statement · pre-emit critique: P5 H5 E4 S5 R4 V5 · contrast: pass (40-41) · slop: pass (42-45) · honest: pass (46) · chrome: pass (47) · tokens: pass (48) · responsive: pass (49) · mobile: pass (34,49,50-57) */
+  @font-face{
+    font-family:'Satoshi';
+    src:url('assets/fonts/Satoshi-Variable.woff2') format('woff2');
+    font-weight:300 900; font-display:swap; font-style:normal;
+  }
 
-@font-face{
-  font-family:'Satoshi';
-  src:url('assets/fonts/Satoshi-Variable.woff2') format('woff2');
-  font-weight:300 900; font-display:swap; font-style:normal;
-}
+  :root{
+    --bg:#0b0711;
+    --bg-2:#100a1a;
+    --surface:#161022;
+    --surface-2:#1c1430;
+    --line:rgba(255,255,255,.09);
+    --line-strong:rgba(255,255,255,.16);
+    --text:#efeaf6;
+    --muted:#a79cbd;
+    --muted-2:#8478a0;
+    --accent:#6441A5;
+    --accent-2:#8b62d6;
+    --accent-soft:rgba(100,65,165,.18);
+    --twitch:#9146FF;
+    --youtube:#ff4e45;
+    --kick:#53FC18;
+    --r-card:16px;
+    --r-media:14px;
+    --r-chip:10px;
+    --maxw:1120px;
+  }
 
-:root{
-  /* palette — neutrals tinted toward the brand purple hue */
-  --color-paper:      #0c0812;
-  --color-paper-2:    #130c1e;
-  --color-paper-3:    #1a1128;
-  --color-ink:        #f3eff9;
-  --color-ink-2:      #bcb2cd;   /* muted, >7:1 on paper */
-  --color-ink-3:      #8f84a6;   /* dim, large text only */
-  --color-rule:       #2a2038;
-  --color-rule-2:     #201829;
-  --color-accent:     #6441a5;   /* brand */
-  --color-accent-lift:#a684ec;   /* accent for text/marks on dark */
-  --color-accent-ink: #ffffff;
-  --color-focus:      #a684ec;
-  --twitch:#9146ff; --youtube:#ff4e45; --kick:#53fc18;
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font-family:'Satoshi',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+    -webkit-font-smoothing:antialiased; line-height:1.5;
+    overflow-x:hidden;
+  }
+  a{color:inherit;text-decoration:none}
+  img,svg{display:block;max-width:100%}
+  :focus-visible{outline:2px solid var(--accent-2);outline-offset:3px;border-radius:6px}
 
-  --font-display:'Satoshi',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
-  --font-body:'Satoshi',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:0 24px}
 
-  --space-3xs:.25rem; --space-2xs:.5rem; --space-xs:.75rem; --space-sm:1rem;
-  --space-md:1.5rem; --space-lg:2rem; --space-xl:3rem; --space-2xl:4.5rem; --space-3xl:7rem;
+  /* ambient background */
+  .amb{position:fixed;inset:0;z-index:-1;pointer-events:none;overflow:hidden}
+  .amb::before{content:"";position:absolute;top:-18%;left:50%;transform:translateX(-50%);
+    width:900px;height:900px;border-radius:50%;
+    background:radial-gradient(closest-side,rgba(100,65,165,.35),transparent 70%);
+    filter:blur(20px)}
+  .amb::after{content:"";position:absolute;bottom:-30%;right:-10%;
+    width:640px;height:640px;border-radius:50%;
+    background:radial-gradient(closest-side,rgba(80,45,150,.22),transparent 70%)}
 
-  --text-sm:.875rem; --text-md:1.0625rem; --text-lg:1.375rem; --text-xl:1.9rem;
+  /* nav */
+  header.nav{position:sticky;top:0;z-index:50;
+    background:rgba(11,7,17,.72);backdrop-filter:blur(14px);
+    border-bottom:1px solid var(--line)}
+  .nav-inner{display:flex;align-items:center;gap:20px;height:66px}
+  .brand{display:flex;align-items:center;gap:11px;font-weight:800;letter-spacing:-.01em;font-size:18px}
+  .brand img{width:30px;height:30px;border-radius:8px}
+  .nav-links{margin-left:auto;display:flex;align-items:center;gap:26px}
+  .nav-links a{color:var(--muted);font-weight:600;font-size:14.5px;transition:color .2s}
+  .nav-links a:hover{color:var(--text)}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:9px;
+    font-weight:700;font-size:14.5px;border-radius:999px;cursor:pointer;
+    transition:transform .18s ease,background .2s,border-color .2s;white-space:nowrap}
+  .btn:active{transform:translateY(1px)}
+  .btn-primary{background:var(--accent);color:#fff;padding:11px 20px;
+    box-shadow:0 8px 24px -8px rgba(100,65,165,.8)}
+  .btn-primary:hover{background:#7350bb}
+  .btn-ghost{border:1px solid var(--line-strong);color:var(--text);padding:11px 20px;background:transparent}
+  .btn-ghost:hover{border-color:var(--accent-2);background:var(--accent-soft)}
+  .nav-cta{margin-left:2px}
+  .nav-toggle{display:none}
 
-  --radius-pill:999px; --radius-card:14px; --radius-input:10px;
-  --ease-out:cubic-bezier(.16,1,.3,1); --dur:240ms;
-  --z-nav:300;
-  --maxw:1080px; --banner-h:64px;
-}
+  /* section rhythm */
+  section{padding:96px 0}
+  .eyebrow{font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--accent-2);margin:0 0 14px}
+  h1,h2,h3{margin:0;letter-spacing:-.025em;line-height:1.04;text-wrap:balance}
+  h2{font-size:clamp(1.9rem,3.6vw,2.9rem);font-weight:800}
+  .lead{color:var(--muted);font-size:clamp(1rem,1.4vw,1.15rem);max-width:60ch}
 
-*{box-sizing:border-box}
-html,body{overflow-x:clip}          /* gate 34: clip on both, preserves sticky */
-html{scroll-behavior:smooth}
-body{
-  margin:0; background:var(--color-paper); color:var(--color-ink);
-  font-family:var(--font-body); line-height:1.55; -webkit-font-smoothing:antialiased;
-  font-feature-settings:"ss01";
-}
-a{color:inherit;text-decoration:none}
-img,svg{display:block;max-width:100%}
-h1,h2,h3{margin:0;font-family:var(--font-display);font-style:normal;letter-spacing:-.025em;
-  line-height:1.05;overflow-wrap:anywhere;min-width:0;text-wrap:balance}
-p{margin:0}
-.tnum{font-variant-numeric:tabular-nums}
-:focus-visible{outline:2px solid var(--color-focus);outline-offset:2px;border-radius:4px}
+  /* hero */
+  .hero{padding-top:64px;padding-bottom:64px}
+  .hero-grid{display:grid;grid-template-columns:1.05fr .95fr;gap:56px;align-items:center;min-height:76vh}
+  .hero h1{font-size:clamp(2.9rem,6vw,4.7rem);font-weight:900}
+  .hero h1 em{font-style:normal;color:var(--accent-2)}
+  .hero .lead{margin:22px 0 32px;font-size:clamp(1.05rem,1.5vw,1.28rem);max-width:34ch}
+  .hero-ctas{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+  .hero-ctas .dlbtn{display:inline-block;line-height:0;transition:transform .18s ease}
+  .hero-ctas .dlbtn:hover{transform:translateY(-2px)}
+  .hero-note{margin-top:20px;color:var(--muted-2);font-size:13.5px}
 
-.wrap{max-width:var(--maxw);margin:0 auto;padding-inline:var(--space-md)}
+  /* hero visual: the goal */
+  .goalcard{position:relative;background:linear-gradient(160deg,var(--surface-2),var(--surface));
+    border:1px solid var(--line);border-radius:24px;padding:34px;
+    box-shadow:0 40px 80px -40px rgba(0,0,0,.8)}
+  .goalcard .cap{display:flex;justify-content:space-between;align-items:center;color:var(--muted-2);
+    font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase}
+  .ring-wrap{display:flex;justify-content:center;padding:14px 0 6px}
+  .ring{position:relative;width:210px;height:210px}
+  .ring svg{transform:rotate(-90deg)}
+  .ring .track{stroke:rgba(255,255,255,.08)}
+  .ring .prog{stroke:url(#g);stroke-linecap:round}
+  .ring-num{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+  .ring-num b{font-size:52px;font-weight:900;letter-spacing:-.03em;font-variant-numeric:tabular-nums;line-height:1}
+  .ring-num span{color:var(--muted);font-size:14px;font-weight:600;margin-top:4px;font-variant-numeric:tabular-nums}
+  .chips{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:20px}
+  .chip{display:flex;align-items:center;gap:9px;background:rgba(255,255,255,.03);
+    border:1px solid var(--line);border-radius:var(--r-chip);padding:10px 11px}
+  .chip img{width:22px;height:22px}
+  .chip .n{font-weight:800;font-size:15px;font-variant-numeric:tabular-nums}
+  .chip .t{color:var(--muted-2);font-size:11px;font-weight:600}
 
-/* ── Nav · N9 edge-aligned minimal (only two destinations, no centred link cluster, no hairline) ── */
-header.nav{position:sticky;top:0;z-index:var(--z-nav);height:var(--banner-h);
-  display:flex;align-items:center;background:color-mix(in oklab,var(--color-paper) 82%,transparent);
-  backdrop-filter:blur(12px)}
-.nav-in{max-width:var(--maxw);margin:0 auto;padding-inline:var(--space-md);
-  width:100%;display:flex;align-items:center;gap:var(--space-md)}
-.wordmark{display:flex;align-items:center;gap:var(--space-2xs);font-weight:800;
-  font-size:1.05rem;letter-spacing:-.01em;line-height:1}
-.wordmark img{width:26px;height:26px;border-radius:7px}
-.nav-actions{margin-left:auto;display:flex;align-items:center;gap:var(--space-sm)}
-.nav-actions a.textlink{color:var(--color-ink-2);font-weight:600;font-size:var(--text-sm);line-height:1}
-.nav-actions a.textlink:hover{color:var(--color-ink)}
+  /* combine section */
+  .combine{text-align:center}
+  .combine h2{max-width:16ch;margin:0 auto}
+  .combine .lead{margin:18px auto 0;text-align:center}
+  .flow{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:28px;
+    max-width:820px;margin:52px auto 0}
+  .sources{display:flex;flex-direction:column;gap:14px}
+  .source{display:flex;align-items:center;gap:14px;background:var(--surface);
+    border:1px solid var(--line);border-radius:var(--r-card);padding:16px 18px;text-align:left}
+  .source img{width:32px;height:32px;flex:none}
+  .source .h{font-weight:800;font-size:15px}
+  .source .s{color:var(--muted-2);font-size:12.5px}
+  .flow-eq{font-size:34px;color:var(--muted-2);font-weight:300}
+  .totalbox{background:linear-gradient(160deg,var(--accent),#4b2f86);border-radius:20px;
+    padding:30px 22px;text-align:center;box-shadow:0 30px 60px -30px rgba(100,65,165,.9)}
+  .totalbox .big{font-size:62px;font-weight:900;letter-spacing:-.03em;font-variant-numeric:tabular-nums;line-height:1}
+  .totalbox .lbl{color:rgba(255,255,255,.82);font-weight:700;font-size:12px;letter-spacing:.12em;text-transform:uppercase;margin-top:8px}
 
-/* buttons — one hover signal each, full eight states */
-.chip{display:inline-flex;align-items:center;gap:var(--space-2xs);line-height:1;
-  font-weight:700;font-size:var(--text-sm);border-radius:var(--radius-pill);
-  padding:.62em 1.1em;border:1px solid var(--color-rule);color:var(--color-ink);
-  background:transparent;cursor:pointer;transition:border-color var(--dur) var(--ease-out)}
-.chip:hover{border-color:var(--color-accent-lift)}
-.chip:active{transform:translateY(1px)}
-.chip:disabled{opacity:.55;cursor:not-allowed}
+  /* OBS split */
+  .split{display:grid;grid-template-columns:1fr 1fr;gap:56px;align-items:center}
+  .media{border:1px solid var(--line);border-radius:var(--r-media);overflow:hidden;
+    background:var(--surface);box-shadow:0 30px 60px -34px rgba(0,0,0,.8)}
+  .media img{width:100%;height:auto}
+  .media .bar{display:flex;gap:7px;padding:12px 14px;border-bottom:1px solid var(--line);background:var(--surface-2)}
+  .media .bar i{width:11px;height:11px;border-radius:50%;background:#463a5e;display:block}
+  .ilist{list-style:none;padding:0;margin:22px 0 0;display:grid;gap:14px}
+  .ilist li{display:flex;gap:12px;color:var(--muted);font-size:15px}
+  .ilist svg{flex:none;margin-top:2px;color:var(--accent-2)}
 
-/* ── Sections ── */
-section{padding-block:var(--space-2xl)}
-.hero{padding-top:var(--space-xl);padding-bottom:var(--space-3xl)}   /* gate 44: bottom-heavy */
+  /* bento */
+  .bento{display:grid;grid-template-columns:repeat(3,1fr);grid-auto-flow:dense;gap:18px;margin-top:52px}
+  .cell{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-card);
+    padding:26px;position:relative;overflow:hidden;transition:transform .25s ease,border-color .25s}
+  .cell:hover{transform:translateY(-4px);border-color:var(--line-strong)}
+  .cell h3{font-size:19px;font-weight:800;margin-bottom:8px}
+  .cell p{color:var(--muted);font-size:14.5px;margin:0;max-width:42ch}
+  .cell.wide{grid-column:span 2}
+  .cell.tint{background:linear-gradient(160deg,rgba(100,65,165,.28),var(--surface))}
+  .cell .kicker{color:var(--accent-2);font-weight:700;font-size:12px;letter-spacing:.1em;text-transform:uppercase;margin-bottom:14px}
+  .ladder{display:flex;align-items:flex-end;gap:8px;height:64px;margin-top:18px}
+  .ladder span{flex:1;background:linear-gradient(180deg,var(--accent-2),var(--accent));border-radius:6px 6px 3px 3px;opacity:.9}
+  .cell .appicon{width:46px;height:46px;border-radius:11px;margin-bottom:16px}
+  .lockrow{display:flex;gap:10px;margin-top:16px;color:var(--muted-2)}
 
-/* Stat-Led hero — figure is the biggest element, paired with worded headline */
-.figure{font-family:var(--font-display);font-weight:900;letter-spacing:-.04em;
-  font-size:clamp(5.5rem,17vw,11rem);line-height:.86;color:var(--color-ink)}
-.figure .unit{font-size:.34em;font-weight:700;color:var(--color-ink-3);letter-spacing:-.01em;
-  margin-left:.15em;vertical-align:.5em}
-.figure .tag{display:inline-block;font-size:.09em;font-weight:700;letter-spacing:.14em;
-  text-transform:uppercase;color:var(--color-accent-lift);vertical-align:1.9em;margin-left:.4em}
-.hero h1{font-size:clamp(1.9rem,4.6vw,3.1rem);font-weight:800;margin-top:var(--space-md);max-width:18ch}
-.hero .qual{color:var(--color-ink-2);font-size:var(--text-lg);margin-top:var(--space-sm);max-width:56ch}
-.hero .ctas{display:flex;align-items:center;gap:var(--space-md);flex-wrap:wrap;margin-top:var(--space-lg)}
-.hero .dl{display:inline-block;line-height:0;transition:transform var(--dur) var(--ease-out)}
-.hero .dl:hover{transform:translateY(-2px)}
-.hero .dl:active{transform:translateY(0)}
+  /* final cta */
+  .final{text-align:center;background:
+    radial-gradient(closest-side at 50% 0%,rgba(100,65,165,.22),transparent 70%);}
+  .final h2{max-width:16ch;margin:0 auto 28px}
+  .final .row{display:flex;gap:16px;justify-content:center;align-items:center;flex-wrap:wrap}
+  .final .dlbtn{display:inline-block;line-height:0;transition:transform .18s ease}
+  .final .dlbtn:hover{transform:translateY(-2px)}
+  .final .note{margin-top:20px;color:var(--muted-2);font-size:14px}
 
-/* ledger — hairline strip, not nested cards */
-.ledger{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-md);
-  margin-top:var(--space-xl);padding-top:var(--space-md);border-top:1px solid var(--color-rule)}
-.ledger .lbl{color:var(--color-ink-3);font-size:var(--text-sm);font-weight:600}
-.led{display:flex;align-items:center;gap:var(--space-2xs)}
-.led img{width:22px;height:22px}
-.led b{font-weight:800;font-size:var(--text-md)}
-.led span{color:var(--color-ink-3);font-size:var(--text-sm)}
+  /* footer */
+  footer{border-top:1px solid var(--line);padding:56px 0 44px}
+  .foot{display:grid;grid-template-columns:1.4fr 1fr 1fr 1fr;gap:32px}
+  .foot .brand{margin-bottom:14px}
+  .foot p{color:var(--muted-2);font-size:13.5px;max-width:30ch;margin:0}
+  .foot h4{margin:0 0 14px;font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted-2);font-weight:700}
+  .foot ul{list-style:none;padding:0;margin:0;display:grid;gap:10px}
+  .foot ul a{color:var(--muted);font-size:14px;transition:color .2s}
+  .foot ul a:hover{color:var(--text)}
+  .copyright{margin-top:40px;padding-top:22px;border-top:1px solid var(--line);
+    color:var(--muted-2);font-size:13px;display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
 
-/* Supporting stats — true facts, hairline-separated, no icon tiles */
-.stats{background:var(--color-paper-2);border-block:1px solid var(--color-rule)}
-.stats .grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:var(--space-lg)}
-.stat .n{font-family:var(--font-display);font-weight:900;font-size:clamp(2.6rem,5vw,3.6rem);
-  line-height:1;letter-spacing:-.03em}
-.stat .k{color:var(--color-ink-2);font-size:var(--text-md);margin-top:var(--space-2xs);max-width:24ch}
-.stat{padding-left:var(--space-md);border-left:1px solid var(--color-rule)}
-.stat:first-child{padding-left:0;border-left:0}
+  /* reveal */
+  .reveal{opacity:0;transform:translateY(22px)}
+  .reveal.in{opacity:1;transform:none;transition:opacity .7s cubic-bezier(.16,1,.3,1),transform .7s cubic-bezier(.16,1,.3,1)}
 
-/* prose blocks */
-.lead-row{display:grid;grid-template-columns:minmax(0,.82fr) minmax(0,1.18fr);
-  gap:var(--space-2xl);align-items:start}
-.kicker{color:var(--color-accent-lift);font-weight:700;font-size:var(--text-sm);
-  letter-spacing:-.005em;margin-bottom:var(--space-sm)}
-h2{font-size:var(--text-xl);font-weight:800;max-width:20ch}
-.body-md{color:var(--color-ink-2);font-size:var(--text-md);max-width:62ch;margin-top:var(--space-sm)}
+  @media (max-width:900px){
+    .nav-links{display:none}
+    .nav-links.open{display:flex;position:absolute;top:66px;left:0;right:0;flex-direction:column;
+      align-items:flex-start;gap:16px;padding:20px 24px;background:var(--bg-2);border-bottom:1px solid var(--line)}
+    .nav-toggle{display:inline-flex;margin-left:auto}
+    .hero-grid{grid-template-columns:1fr;gap:40px;min-height:0}
+    .hero .lead{max-width:46ch}
+    .split{grid-template-columns:1fr;gap:32px}
+    .flow{grid-template-columns:1fr;gap:20px}
+    .flow-eq{transform:rotate(90deg)}
+    .bento{grid-template-columns:1fr}
+    .cell.wide{grid-column:span 1}
+    .foot{grid-template-columns:1fr 1fr}
+    section{padding:72px 0}
+  }
+  @media (max-width:560px){.foot{grid-template-columns:1fr}}
 
-/* sources as hairline rows */
-.rows{margin-top:var(--space-lg);border-top:1px solid var(--color-rule)}
-.row{display:flex;align-items:center;gap:var(--space-sm);padding-block:var(--space-md);
-  border-bottom:1px solid var(--color-rule)}
-.row img{width:30px;height:30px;flex:none}
-.row .h{font-weight:800;font-size:var(--text-md)}
-.row .s{color:var(--color-ink-3);font-size:var(--text-sm)}
-.row .when{margin-left:auto;color:var(--color-ink-2);font-size:var(--text-sm);
-  font-weight:600;white-space:nowrap}
-
-/* OBS figure — real screenshot, no re-drawn chrome (gate 47) */
-figure.shot{margin:0}
-figure.shot img{width:100%;height:auto;border:1px solid var(--color-rule);border-radius:var(--radius-card)}
-figure.shot figcaption{color:var(--color-ink-3);font-size:var(--text-sm);margin-top:var(--space-2xs)}
-
-/* mechanic ladder */
-.ladder{display:flex;align-items:flex-end;gap:var(--space-2xs);height:76px;margin-top:var(--space-lg)}
-.ladder span{flex:1;background:var(--color-accent);border-radius:5px 5px 2px 2px}
-.ladder span:last-child{background:var(--color-accent-lift)}
-
-/* secure line */
-.secure{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--space-lg);
-  border-top:1px solid var(--color-rule);padding-top:var(--space-lg)}
-.secure h3{font-size:var(--text-md);font-weight:800}
-.secure p{color:var(--color-ink-2);font-size:var(--text-sm);margin-top:var(--space-3xs);max-width:34ch}
-
-/* final CTA — one button */
-.final{text-align:left;border-top:1px solid var(--color-rule)}
-.final h2{font-size:clamp(2rem,4.4vw,3rem);max-width:16ch}
-.final .dl{display:inline-block;line-height:0;margin-top:var(--space-lg);
-  transition:transform var(--dur) var(--ease-out)}
-.final .dl:hover{transform:translateY(-2px)}
-.final .note{color:var(--color-ink-3);font-size:var(--text-sm);margin-top:var(--space-md)}
-
-/* Footer · Ft5 statement */
-footer{border-top:1px solid var(--color-rule);padding-block:var(--space-2xl)}
-.foot-state{font-family:var(--font-display);font-weight:800;font-size:clamp(1.5rem,3.4vw,2.3rem);
-  letter-spacing:-.025em;max-width:20ch;line-height:1.08}
-.foot-links{display:flex;flex-wrap:wrap;gap:var(--space-md);margin-top:var(--space-lg);
-  color:var(--color-ink-2);font-weight:600;font-size:var(--text-sm)}
-.foot-links a:hover{color:var(--color-ink)}
-.foot-meta{display:flex;justify-content:space-between;flex-wrap:wrap;gap:var(--space-sm);
-  margin-top:var(--space-lg);color:var(--color-ink-3);font-size:var(--text-sm)}
-
-/* one orchestrated entrance: hero number-tick only. reduced-motion safe. */
-@media (prefers-reduced-motion:reduce){
-  html{scroll-behavior:auto}
-  .chip,.dl{transition:none}
-}
-
-@media (max-width:860px){
-  .lead-row{grid-template-columns:1fr;gap:var(--space-lg)}
-  .stats .grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--space-lg) var(--space-md)}
-  .secure{grid-template-columns:1fr;gap:var(--space-md)}
-  .stat{padding-left:0;border-left:0;border-top:1px solid var(--color-rule);padding-top:var(--space-sm)}
-  .stat:first-child{border-top:0;padding-top:0}
-}
-@media (max-width:520px){
-  .stats .grid{grid-template-columns:1fr}
-  .nav-actions a.textlink{display:none}   /* keep the row single-line (gate 49) */
-}
+  @media (prefers-reduced-motion:reduce){
+    *{scroll-behavior:auto}
+    .reveal{opacity:1;transform:none;transition:none}
+    .btn,.dlbtn,.cell{transition:none}
+  }
 </style>
 </head>
 <body>
+<div class="amb" aria-hidden="true"></div>
 
 <header class="nav">
-  <div class="nav-in">
-    <a class="wordmark" href="#top"><img src="assets/logo.svg" alt="" /> NextGoal</a>
-    <div class="nav-actions">
-      <a class="textlink" href="https://github.com/sidkapahi/NextGoal">GitHub</a>
-      <a class="chip" href="https://github.com/sidkapahi/NextGoal/releases/latest">Download</a>
-    </div>
+  <div class="wrap nav-inner">
+    <a class="brand" href="#top"><img src="assets/logo.svg" alt="" /> NextGoal</a>
+    <nav class="nav-links" id="navlinks">
+      <a href="#combine">How it works</a>
+      <a href="#obs">OBS</a>
+      <a href="https://github.com/sidkapahi/NextGoal">GitHub</a>
+    </nav>
+    <a class="btn btn-primary nav-cta" href="https://github.com/sidkapahi/NextGoal/releases/latest">Download</a>
+    <button class="btn btn-ghost nav-toggle" id="navtoggle" aria-label="Menu" aria-expanded="false">Menu</button>
   </div>
 </header>
 
 <main id="top">
 
-  <!-- HERO · Stat-Led -->
-  <section class="hero wrap">
-    <div class="figure tnum" aria-label="Example combined goal of 350">
-      <span id="fig" data-target="350">0</span><span class="unit">next goal</span><span class="tag">live example</span>
-    </div>
-    <h1>One number, counted across every platform.</h1>
-    <p class="qual">NextGoal blends your Twitch, YouTube, and Kick subscribers into a single live goal, and shows it on stream through OBS.</p>
-    <div class="ctas">
-      <a class="dl" href="https://github.com/sidkapahi/NextGoal/releases/latest" aria-label="Download NextGoal for Windows">
-        <img src="download-windows.svg" alt="Download for Windows" width="272" height="53" />
-      </a>
-      <a class="chip" href="https://github.com/sidkapahi/NextGoal">View on GitHub</a>
-    </div>
-    <div class="ledger" aria-label="Example breakdown">
-      <span class="lbl">Built from</span>
-      <span class="led"><img src="assets/twitch.svg" alt="Twitch" /><b class="tnum">214</b><span>Twitch</span></span>
-      <span class="led"><img src="assets/youtube.svg" alt="YouTube" /><b class="tnum">71</b><span>YouTube</span></span>
-      <span class="led"><img src="assets/kick.svg" alt="Kick" /><b class="tnum">27</b><span>Kick</span></span>
+  <!-- HERO -->
+  <section class="hero">
+    <div class="wrap hero-grid">
+      <div>
+        <h1>One goal.<br /><em>Every platform.</em></h1>
+        <p class="lead">NextGoal blends your Twitch subs, YouTube members, and Kick subs into a single live goal on stream.</p>
+        <div class="hero-ctas">
+          <a class="dlbtn" href="https://github.com/sidkapahi/NextGoal/releases/latest" aria-label="Download NextGoal for Windows">
+            <img src="download-windows.svg" alt="Download for Windows" width="272" height="53" />
+          </a>
+          <a class="btn btn-ghost" href="https://github.com/sidkapahi/NextGoal">View on GitHub</a>
+        </div>
+        <p class="hero-note">Free and open source. Windows, one-click install.</p>
+      </div>
+
+      <div class="goalcard reveal">
+        <div class="cap"><span>Next goal</span><span>Auto-increment +50</span></div>
+        <div class="ring-wrap">
+          <div class="ring">
+            <svg width="210" height="210" viewBox="0 0 210 210">
+              <defs>
+                <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0" stop-color="#8b62d6"/><stop offset="1" stop-color="#6441A5"/>
+                </linearGradient>
+              </defs>
+              <circle class="track" cx="105" cy="105" r="92" fill="none" stroke-width="16"/>
+              <circle class="prog" id="prog" cx="105" cy="105" r="92" fill="none" stroke-width="16"
+                stroke-dasharray="578" stroke-dashoffset="578"/>
+            </svg>
+            <div class="ring-num"><b>312</b><span>of 350</span></div>
+          </div>
+        </div>
+        <div class="chips">
+          <div class="chip"><img src="assets/twitch.svg" alt="Twitch" /><div><div class="n">214</div><div class="t">Twitch</div></div></div>
+          <div class="chip"><img src="assets/youtube.svg" alt="YouTube" /><div><div class="n">71</div><div class="t">YouTube</div></div></div>
+          <div class="chip"><img src="assets/kick.svg" alt="Kick" /><div><div class="n">27</div><div class="t">Kick</div></div></div>
+        </div>
+      </div>
     </div>
   </section>
 
-  <!-- SUPPORTING STATS · true facts only -->
-  <section class="stats">
-    <div class="wrap grid">
-      <div class="stat"><div class="n tnum">3</div><div class="k">platforms feeding one counter</div></div>
-      <div class="stat"><div class="n tnum">0</div><div class="k">OBS plugins to install</div></div>
-      <div class="stat"><div class="n tnum">60<span style="font-size:.5em">s</span></div><div class="k">poll for YouTube and Kick; Twitch is live</div></div>
-      <div class="stat"><div class="n">MIT</div><div class="k">free and open source</div></div>
-    </div>
-  </section>
-
-  <!-- HOW THE NUMBER IS BUILT -->
-  <section class="wrap lead-row">
-    <div>
-      <div class="kicker">How the number is built</div>
-      <h2>Every sub and member, counted once.</h2>
-    </div>
-    <div>
-      <p class="body-md">Link only the platforms you stream on. Twitch arrives in real time over EventSub; YouTube and Kick are polled for their current totals. NextGoal adds them into the single number your viewers watch climb.</p>
-      <div class="rows">
-        <div class="row"><img src="assets/twitch.svg" alt="Twitch" /><div><div class="h">Twitch subs</div><div class="s">Live subscription events</div></div><div class="when">Real time</div></div>
-        <div class="row"><img src="assets/youtube.svg" alt="YouTube" /><div><div class="h">YouTube members</div><div class="s">Current membership total</div></div><div class="when">Every 60s</div></div>
-        <div class="row"><img src="assets/kick.svg" alt="Kick" /><div><div class="h">Kick subs</div><div class="s">Current subscriber total</div></div><div class="when">Every 60s</div></div>
+  <!-- COMBINE -->
+  <section id="combine" class="combine">
+    <div class="wrap reveal">
+      <p class="eyebrow">Three platforms, one number</p>
+      <h2>Every sub and member counts once, together.</h2>
+      <p class="lead">Twitch counts in real time over EventSub. YouTube and Kick are polled for their current totals every 60 seconds. Link only the platforms you stream on.</p>
+      <div class="flow">
+        <div class="sources">
+          <div class="source"><img src="assets/twitch.svg" alt="Twitch" /><div><div class="h">Twitch subs</div><div class="s">Live, over EventSub</div></div></div>
+          <div class="source"><img src="assets/youtube.svg" alt="YouTube" /><div><div class="h">YouTube members</div><div class="s">Polled every 60s</div></div></div>
+          <div class="source"><img src="assets/kick.svg" alt="Kick" /><div><div class="h">Kick subs</div><div class="s">Polled every 60s</div></div></div>
+        </div>
+        <div class="flow-eq" aria-hidden="true">=</div>
+        <div class="totalbox"><div class="big">312</div><div class="lbl">On stream now</div></div>
       </div>
     </div>
   </section>
 
   <!-- OBS -->
-  <section class="wrap lead-row">
-    <div>
-      <div class="kicker">Straight into OBS</div>
-      <h2>Point it at OBS once. No plugin.</h2>
-      <p class="body-md">NextGoal writes the goal into a text source over obs-websocket, so it appears on stream without installing anything into OBS. A plain text-file fallback covers any other setup.</p>
-    </div>
-    <figure class="shot">
-      <img src="assets/obs-sources.png" alt="NextGoal choosing an OBS text source to write the goal into" />
-      <figcaption>Choosing the OBS text source NextGoal writes to.</figcaption>
-    </figure>
-  </section>
-
-  <!-- MECHANIC -->
-  <section class="wrap lead-row">
-    <div>
-      <div class="kicker">The mechanic</div>
-      <h2>Hit the goal, raise the goal.</h2>
-    </div>
-    <div>
-      <p class="body-md">Start at zero each stream, or sync to your current totals. Every time you reach the number, it steps up by your chosen increment, so there is always a next goal to chase.</p>
-      <div class="ladder" aria-hidden="true">
-        <span style="height:34%"></span><span style="height:47%"></span><span style="height:58%"></span>
-        <span style="height:71%"></span><span style="height:84%"></span><span style="height:100%"></span>
+  <section id="obs">
+    <div class="wrap split">
+      <div class="reveal">
+        <p class="eyebrow">Straight into OBS</p>
+        <h2>Point it at OBS once. No plugin.</h2>
+        <p class="lead">NextGoal writes your goal into a text source over obs-websocket, so it shows up on stream without installing anything into OBS.</p>
+        <ul class="ilist">
+          <li><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg> Connects over obs-websocket, no plugin to install</li>
+          <li><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg> Plain text-file fallback for any setup</li>
+          <li><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg> Creates or reuses the text source for you</li>
+        </ul>
+      </div>
+      <div class="media reveal">
+        <div class="bar" aria-hidden="true"><i></i><i></i><i></i></div>
+        <img src="assets/obs-sources.png" alt="NextGoal selecting an OBS text source" />
       </div>
     </div>
   </section>
 
-  <!-- SECURE / QUIET -->
-  <section class="wrap">
-    <div class="secure">
-      <div><h3>No secret to leak.</h3><p>Twitch uses Device Code Flow with a public client. Your token is encrypted on your device.</p></div>
-      <div><h3>Lives in the tray.</h3><p>A free-form window with a one-click tray toggle and an idle or live status icon.</p></div>
-      <div><h3>Yours to read.</h3><p>MIT licensed and built with Electron and Vue. File an issue or send a pull request.</p></div>
+  <!-- BENTO -->
+  <section>
+    <div class="wrap">
+      <div class="reveal">
+        <h2>Built to sit quietly next to your stream.</h2>
+        <p class="lead">A small, focused desktop app. It does one thing and keeps out of the way.</p>
+      </div>
+      <div class="bento">
+        <div class="cell wide tint reveal">
+          <div class="kicker">Auto-incrementing</div>
+          <h3>Hit the goal, raise the goal.</h3>
+          <p>Start at zero each stream or sync to your current totals. Every time you reach the number, it steps up by your chosen increment, so there is always a next goal.</p>
+          <div class="ladder" aria-hidden="true">
+            <span style="height:38%"></span><span style="height:52%"></span><span style="height:64%"></span>
+            <span style="height:78%"></span><span style="height:100%"></span>
+          </div>
+        </div>
+        <div class="cell reveal">
+          <div class="lockrow" aria-hidden="true">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+          </div>
+          <h3>No secret to leak.</h3>
+          <p>Twitch uses Device Code Flow with a public client. Your access token is encrypted on your device.</p>
+        </div>
+        <div class="cell reveal">
+          <img class="appicon" src="assets/icon.png" alt="" />
+          <h3>Lives in the tray.</h3>
+          <p>A free-form window with a one-click tray toggle and an idle or live status icon.</p>
+        </div>
+        <div class="cell wide tint reveal">
+          <div class="kicker">Free and open source</div>
+          <h3>MIT licensed, built with Electron and Vue.</h3>
+          <p>No accounts to create, nothing to pay for. Read the code, file an issue, or send a pull request on GitHub.</p>
+        </div>
+      </div>
     </div>
   </section>
 
-  <!-- FINAL CTA · one button -->
-  <section class="wrap final">
-    <h2>Put the next goal on stream.</h2>
-    <a class="dl" href="https://github.com/sidkapahi/NextGoal/releases/latest" aria-label="Download NextGoal for Windows">
-      <img src="download-windows.svg" alt="Download for Windows" width="272" height="53" />
-    </a>
-    <p class="note">Windows, one-click install. Updates itself in the background.</p>
+  <!-- FINAL CTA -->
+  <section class="final">
+    <div class="wrap reveal">
+      <h2>Put the next goal on stream.</h2>
+      <div class="row">
+        <a class="dlbtn" href="https://github.com/sidkapahi/NextGoal/releases/latest" aria-label="Download NextGoal for Windows">
+          <img src="download-windows.svg" alt="Download for Windows" width="272" height="53" />
+        </a>
+        <a class="btn btn-ghost" href="https://github.com/sidkapahi/NextGoal">View on GitHub</a>
+      </div>
+      <p class="note">Windows, one-click install. Updates itself in the background.</p>
+    </div>
   </section>
 </main>
 
-<!-- Footer · Ft5 statement -->
 <footer>
   <div class="wrap">
-    <p class="foot-state">One goal, across Twitch, YouTube, and Kick.</p>
-    <div class="foot-links">
-      <a href="https://github.com/sidkapahi/NextGoal">GitHub</a>
-      <a href="https://github.com/sidkapahi/NextGoal/releases">Releases</a>
-      <a href="privacy.html">Privacy</a>
-      <a href="https://github.com/sidkapahi/NextGoal/blob/main/LICENSE">License</a>
+    <div class="foot">
+      <div>
+        <a class="brand" href="#top"><img src="assets/logo.svg" alt="" /> NextGoal</a>
+        <p>One auto-incrementing sub and member goal for OBS, across Twitch, YouTube, and Kick.</p>
+      </div>
+      <div>
+        <h4>Product</h4>
+        <ul>
+          <li><a href="https://github.com/sidkapahi/NextGoal/releases/latest">Download</a></li>
+          <li><a href="https://github.com/sidkapahi/NextGoal/releases">All releases</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Project</h4>
+        <ul>
+          <li><a href="https://github.com/sidkapahi/NextGoal">GitHub</a></li>
+          <li><a href="https://github.com/sidkapahi/NextGoal/blob/main/LICENSE">License (MIT)</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Legal</h4>
+        <ul>
+          <li><a href="privacy.html">Privacy policy</a></li>
+        </ul>
+      </div>
     </div>
-    <div class="foot-meta">
+    <div class="copyright">
       <span>Copyright 2026 Sid Kapahi</span>
       <span>Not affiliated with Twitch, YouTube, Kick, or OBS.</span>
     </div>
@@ -321,23 +402,41 @@ footer{border-top:1px solid var(--color-rule);padding-block:var(--space-2xl)}
 </footer>
 
 <script>
-  // Single orchestrated entrance: hero figure counts 0 -> target (~600ms).
-  (function(){
-    var el=document.getElementById('fig');
-    if(!el) return;
-    var target=parseInt(el.getAttribute('data-target'),10)||0;
-    var reduce=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if(reduce){ el.textContent=target; return; }
-    var dur=600, start=null;
-    function ease(t){ return 1-Math.pow(1-t,3); }
-    function step(ts){
-      if(start===null) start=ts;
-      var p=Math.min((ts-start)/dur,1);
-      el.textContent=Math.round(ease(p)*target);
-      if(p<1) requestAnimationFrame(step);
-    }
-    requestAnimationFrame(step);
-  })();
+  // mobile nav
+  var t=document.getElementById('navtoggle'),l=document.getElementById('navlinks');
+  if(t){t.addEventListener('click',function(){var o=l.classList.toggle('open');t.setAttribute('aria-expanded',o)})}
+
+  // scroll reveal via IntersectionObserver (no scroll listeners)
+  var rm=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if(!rm && 'IntersectionObserver' in window){
+    var io=new IntersectionObserver(function(es){
+      es.forEach(function(e){if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target)}})
+    },{threshold:.16});
+    document.querySelectorAll('.reveal').forEach(function(el){io.observe(el)});
+  }else{
+    document.querySelectorAll('.reveal').forEach(function(el){el.classList.add('in')});
+  }
+
+  // animate the goal ring once, when visible
+  var prog=document.getElementById('prog');
+  if(prog && !rm && 'IntersectionObserver' in window){
+    var pio=new IntersectionObserver(function(es){
+      es.forEach(function(e){
+        if(e.isIntersecting){
+          // 312/350 = ~0.891 of the circle
+          var off=578*(1-0.891);
+          requestAnimationFrame(function(){
+            prog.style.transition='stroke-dashoffset 1.6s cubic-bezier(.16,1,.3,1)';
+            prog.style.strokeDashoffset=off;
+          });
+          pio.disconnect();
+        }
+      })
+    },{threshold:.4});
+    pio.observe(prog);
+  }else if(prog){
+    prog.style.strokeDashoffset=578*(1-0.891);
+  }
 </script>
 </body>
 </html>
