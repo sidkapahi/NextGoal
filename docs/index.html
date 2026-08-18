@@ -94,9 +94,10 @@
   /* hero */
   .hero{padding-top:64px;padding-bottom:64px}
   .hero-grid{display:grid;grid-template-columns:1.05fr .95fr;gap:56px;align-items:center;min-height:76vh}
-  .hero h1{font-size:clamp(2.9rem,6vw,4.7rem);font-weight:900}
-  .hero h1 em{font-style:normal;color:var(--accent-2)}
-  .hero .lead{margin:22px 0 32px;font-size:clamp(1.05rem,1.5vw,1.28rem);max-width:34ch}
+  .hero h1{font-size:clamp(3rem,6.4vw,5rem);font-weight:900;letter-spacing:-.035em;line-height:1}
+  .hero-tag{margin:12px 0 0;font-size:clamp(1.5rem,3.2vw,2.4rem);font-weight:800;letter-spacing:-.02em;line-height:1.05}
+  .hero-tag em{font-style:normal;color:var(--accent-2)}
+  .hero .lead{margin:20px 0 32px;font-size:clamp(1.05rem,1.5vw,1.28rem);max-width:44ch}
   .hero-ctas{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
   .hero-ctas .dlbtn{display:inline-block;line-height:0;transition:transform .18s ease}
   .hero-ctas .dlbtn:hover{transform:translateY(-2px)}
@@ -223,6 +224,7 @@
     .btn,.dlbtn,.cell{transition:none}
   }
 </style>
+<noscript><style>.reveal{opacity:1 !important;transform:none !important}</style></noscript>
 </head>
 <body>
 <div class="amb" aria-hidden="true"></div>
@@ -246,9 +248,10 @@
   <section class="hero">
     <div class="wrap hero-grid">
       <div>
-        <p class="eyebrow">NextGoal</p>
-        <h1>One goal.<br /><em>Every platform.</em></h1>
-        <p class="lead">NextGoal is a free desktop app for streamers that combines your Twitch subs, YouTube channel members, and Kick subs into a single auto-incrementing goal, shown live on your stream through OBS.</p>
+        <p class="eyebrow">Sub &amp; member goal for OBS</p>
+        <h1>NextGoal</h1>
+        <p class="hero-tag">One goal. <em>Every platform.</em></p>
+        <p class="lead">NextGoal is a free desktop app for live streamers. It connects to your Twitch, YouTube, and Kick accounts with read-only access, adds up your subscribers and channel members, and shows the combined total as a single auto-incrementing goal on your stream through OBS.</p>
         <div class="hero-ctas">
           <a class="dlbtn js-dl" href="https://github.com/sidkapahi/NextGoal/releases/latest" aria-label="Download NextGoal for Windows">
             <img src="assets/download-windows.svg" alt="Download for Windows" width="272" height="53" />
