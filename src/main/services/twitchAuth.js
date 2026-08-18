@@ -9,7 +9,11 @@ const DEVICE_URL = 'https://id.twitch.tv/oauth2/device'
 const TOKEN_URL = 'https://id.twitch.tv/oauth2/token'
 const HELIX_USERS = 'https://api.twitch.tv/helix/users'
 const HELIX_SUBS = 'https://api.twitch.tv/helix/subscriptions'
-const SCOPES = 'channel:read:subscriptions'
+const HELIX_FOLLOWERS = 'https://api.twitch.tv/helix/channels/followers'
+// channel:read:subscriptions powers the sub tracker/count; moderator:read:followers
+// is needed for the follower total (the broadcaster is a moderator of their own
+// channel, so it works against their own broadcaster_id).
+const SCOPES = 'channel:read:subscriptions moderator:read:followers'
 const DEVICE_GRANT = 'urn:ietf:params:oauth:grant-type:device_code'
 
 // Public info, safe to ship. Injected at build time; falls back to env in dev.
@@ -136,6 +140,26 @@ async function getSubscriberCount(accessToken, broadcasterId) {
   return Number(data.total) || 0
 }
 
+// Current total follower count for the broadcaster. Needs the
+// moderator:read:followers scope (added above). A login predating that scope
+// gets a 401/403 "missing scope" here — surfaced as a non-fatal, re-login
+// prompt (`.fatal`) rather than an AuthExpired, so we don't nuke a still-valid
+// subscription login just because followers can't be read yet.
+async function getFollowerCount(accessToken, broadcasterId) {
+  const url = `${HELIX_FOLLOWERS}?broadcaster_id=${encodeURIComponent(broadcasterId)}&first=1`
+  const res = await fetch(url, {
+    headers: { 'Client-Id': CLIENT_ID, Authorization: `Bearer ${accessToken}` },
+  })
+  if (res.status === 401 || res.status === 403) {
+    const e = new AuthError('Reconnect Twitch to grant follower access.')
+    e.fatal = true
+    throw e
+  }
+  if (!res.ok) throw new AuthError('Couldn’t read your Twitch follower count right now. Please try again.')
+  const data = await res.json()
+  return Number(data.total) || 0
+}
+
 module.exports = {
   CLIENT_ID,
   SCOPES,
@@ -146,4 +170,5 @@ module.exports = {
   refreshAccessToken,
   getCurrentUser,
   getSubscriberCount,
+  getFollowerCount,
 }

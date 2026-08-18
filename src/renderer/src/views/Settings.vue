@@ -39,6 +39,10 @@ const dismissedWarn = ref({})
 // --- general (persisted default goal settings) ---
 const defStartGoal = ref(5)
 const defIncrement = ref(5)
+// Optional label prefixed to the OBS output (e.g. "DAILY SUB GOAL"), and what
+// the counter tracks: 'subs' or 'followers'.
+const goalLabel = ref('')
+const trackingMode = ref('subs')
 const showReset = ref(false)
 
 // --- obs ---
@@ -68,6 +72,8 @@ onMounted(async () => {
   if (s.warnings) warnings.value = { ...warnings.value, ...s.warnings }
   defStartGoal.value = s.cfg.startGoal
   defIncrement.value = s.cfg.increment
+  goalLabel.value = s.cfg.goalLabel || ''
+  trackingMode.value = s.cfg.trackingMode || 'subs'
   obsHost.value = s.cfg.obsHost
   obsPort.value = s.cfg.obsPort
   obsPassword.value = s.obsPassword || ''
@@ -108,6 +114,8 @@ function saveGeneral() {
   window.ng.saveSettings({
     startGoal: Math.max(1, Number(defStartGoal.value) || 1),
     increment: Math.max(1, Number(defIncrement.value) || 1),
+    goalLabel: String(goalLabel.value || '').trim(),
+    trackingMode: trackingMode.value === 'followers' ? 'followers' : 'subs',
   })
   close()
 }
@@ -231,6 +239,24 @@ function dismissWarn(id) {
             <label class="col field">
               <span class="t-label">Goal boost</span>
               <input type="number" min="1" v-model="defIncrement" />
+            </label>
+          </div>
+          <div class="row" style="gap:var(--s-3); align-items:flex-start">
+            <label class="col field">
+              <span class="t-label">Text</span>
+              <input type="text" v-model="goalLabel" placeholder="e.g. DAILY SUB GOAL" />
+            </label>
+            <label class="col field">
+              <span class="t-label">Tracking</span>
+              <div class="select-field">
+                <select v-model="trackingMode">
+                  <option value="subs">Subs</option>
+                  <option value="followers">Followers</option>
+                </select>
+                <span class="select-chevron" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6" /></svg>
+                </span>
+              </div>
             </label>
           </div>
         </div>
@@ -460,6 +486,21 @@ function dismissWarn(id) {
 .field--error input,
 .field--error .pw-field,
 .field--error .src-box { border-color: var(--status-error); }
+
+/* Tracking dropdown — native <select> restyled to match the inputs, with a
+   custom chevron (the native arrow is hidden via appearance:none). */
+.select-field { position: relative; width: 100%; }
+.select-field select { -webkit-appearance: none; appearance: none;
+  height: var(--ctrl-input); width: 100%; padding: 0 34px 0 var(--s-3);
+  background: var(--surface-sunken); border: 1px solid var(--border);
+  border-radius: var(--r-md); color: var(--text); font: 400 14px/1 var(--font);
+  cursor: pointer; transition: border-color var(--dur) var(--ease); }
+.select-field select:hover { border-color: var(--border-strong); }
+.select-field select:focus { outline: none; border-color: var(--primary); box-shadow: var(--focus); }
+.select-field select option { background: var(--surface); color: var(--text); }
+.select-chevron { position: absolute; top: 50%; right: 10px; transform: translateY(-50%);
+  display: inline-flex; width: 18px; height: 18px; pointer-events: none; color: var(--text-muted); }
+.select-chevron svg { width: 18px; height: 18px; }
 
 .foot { display: flex; align-items: center; gap: var(--s-4); padding: var(--s-5) 40px var(--s-8); }
 

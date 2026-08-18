@@ -6,7 +6,7 @@ import StatusPill from '../components/StatusPill.vue'
 import GoalBoost from '../components/GoalBoost.vue'
 import ConfirmOverlay from '../components/ConfirmOverlay.vue'
 
-// Monochrome 16px platform glyphs for the Total Subs card.
+// Monochrome 16px platform glyphs for the Live Total card.
 import twitchLogo from '../assets/ui-twitch.svg'
 import kickLogo from '../assets/ui-kick.svg'
 import youtubeLogo from '../assets/ui-youtube.svg'
@@ -71,6 +71,9 @@ const session = ref(0)
 const goal = ref(5)
 const tracking = ref(false)
 const synced = ref(false)
+// 'subs' or 'followers' (from Settings) — drives the SUBS/FOLLOWERS section
+// heading and which platform icons the Live Total card shows.
+const trackingMode = ref('subs')
 const increment = ref(5)
 const defaultIncrement = ref(5)
 const obsOnline = ref(true) // optimistic until the open-probe reports back
@@ -78,7 +81,7 @@ const obsSource = ref('')
 const platforms = ref([])
 const totals = ref({ per: {}, sum: 0, hasAny: false })
 
-// Which Total Subs platform icon is hovered (reveals its per-platform figure).
+// Which Live Total platform icon is hovered (reveals its per-platform figure).
 const hoverPlatform = ref(null)
 
 const confirmingReset = ref(false)
@@ -96,6 +99,7 @@ onMounted(async () => {
   synced.value = !!s.synced
   increment.value = s.increment
   defaultIncrement.value = s.cfg?.increment ?? s.increment
+  trackingMode.value = s.cfg?.trackingMode || 'subs'
   obsSource.value = s.cfg?.obsSource || ''
   platforms.value = s.platforms || []
   if (s.totals) totals.value = s.totals
@@ -153,15 +157,20 @@ const sessionDisplay = computed(() =>
   tracking.value || session.value > 0 ? String(session.value) : '-'
 )
 
+// Header over the two cards: SUBS normally, FOLLOWERS in follower-tracking mode.
+const sectionLabel = computed(() => (trackingMode.value === 'followers' ? 'FOLLOWERS' : 'SUBS'))
+
 // Platforms whose total counts (connected + "Add in total"), in icon order.
+// A platform excluded from the current tracking mode (YouTube in follower mode,
+// flagged inScope:false by the backend) drops out.
 const includedIcons = computed(() =>
   ICON_ORDER.filter((id) => {
     const p = platforms.value.find((x) => x.id === id)
-    return p && p.connected && p.enabled
+    return p && p.connected && p.enabled && p.inScope !== false
   })
 )
 const totalLabel = computed(() =>
-  hoverPlatform.value ? PLATFORM_META[hoverPlatform.value].label : 'Total Subs'
+  hoverPlatform.value ? PLATFORM_META[hoverPlatform.value].label : 'Live Total'
 )
 const totalValue = computed(() => {
   if (hoverPlatform.value) {
@@ -302,7 +311,7 @@ function openSettings() {
 
       <!-- SUBS: current session + all-time total -->
       <section class="subs">
-        <span class="subs-label">SUBS</span>
+        <span class="subs-label">{{ sectionLabel }}</span>
         <div class="subs-row">
           <div
             class="sub-card"
