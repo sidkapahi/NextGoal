@@ -97,6 +97,10 @@ const providers = {
       const at = await auth.refreshAccessToken(refreshTokens.twitch, (t) => persistToken('twitch', t))
       return auth.getSubscriberCount(at, cfg.broadcasterId)
     },
+    async getFollower() {
+      const at = await auth.refreshAccessToken(refreshTokens.twitch, (t) => persistToken('twitch', t))
+      return auth.getFollowerCount(at, cfg.broadcasterId)
+    },
   },
   youtube: {
     auth: youtubeAuth,
@@ -107,6 +111,7 @@ const providers = {
       )
       return youtubeAuth.getMemberCount(at)
     },
+    // No getFollower: YouTube is excluded from follower-mode tracking.
   },
   kick: {
     auth: kickAuth,
@@ -115,7 +120,32 @@ const providers = {
       const at = await kickAuth.refreshAccessToken(refreshTokens.kick, (t) => persistToken('kick', t))
       return kickAuth.getSubscriberCount(at, cfg.kickBroadcasterId)
     },
+    async getFollower() {
+      const at = await kickAuth.refreshAccessToken(refreshTokens.kick, (t) => persistToken('kick', t))
+      return kickAuth.getFollowerCount(at)
+    },
   },
+}
+
+// What the counter tracks. In 'followers' mode YouTube is excluded (no
+// follower concept we surface) and Twitch is polled rather than driven live by
+// the sub EventSub — so the metric fetch and the excluded set below both key off
+// this. Reads cfg live so a Settings change takes effect on the next read.
+function followerMode() {
+  return cfg && cfg.trackingMode === 'followers'
+}
+function excludedPlatforms() {
+  return followerMode() ? ['youtube'] : []
+}
+function inScope(p) {
+  return !excludedPlatforms().includes(p)
+}
+// The current metric for a platform: follower count in follower mode (where the
+// provider supports it), otherwise the sub/member total.
+function fetchMetric(p) {
+  const prov = providers[p]
+  if (followerMode() && prov.getFollower) return prov.getFollower()
+  return prov.getTotal()
 }
 
 const PLATFORM_LABEL = { twitch: 'Twitch', youtube: 'YouTube', kick: 'Kick' }
@@ -248,7 +278,7 @@ function totalsSnapshot() {
   let sum = 0
   let hasAny = false
   for (const p of PLATFORMS) {
-    const included = sources[p].enabled && isConnected(p)
+    const included = sources[p].enabled && isConnected(p) && inScope(p)
     const v = included && typeof allTimeTotals[p] === 'number' ? allTimeTotals[p] : null
     per[p] = v
     if (v != null) {
@@ -266,9 +296,9 @@ async function refreshTotals() {
   totalsBusy = true
   try {
     for (const p of PLATFORMS) {
-      if (sources[p].enabled && isConnected(p)) {
+      if (sources[p].enabled && isConnected(p) && inScope(p)) {
         try {
-          allTimeTotals[p] = Math.max(0, Number(await providers[p].getTotal()) || 0)
+          allTimeTotals[p] = Math.max(0, Number(await fetchMetric(p)) || 0)
           clearPlatformWarning(p)
         } catch (e) {
           // best-effort — never throw out of here. A non-retryable failure
@@ -323,13 +353,13 @@ function persistToken(platform, token) {
 }
 
 function recomputeCount() {
-  count = combinedCount(sources, synced, manualOffset)
+  count = combinedCount(sources, synced, manualOffset, excludedPlatforms())
 }
 
 // Subs gained this session, independent of the active mode — so the "Current
 // Session" card shows its own figure even when "Total Subs" is the active source.
 function sessionCount() {
-  return combinedCount(sources, false, manualOffset)
+  return combinedCount(sources, false, manualOffset, excludedPlatforms())
 }
 
 function platformsSnapshot() {
@@ -340,9 +370,19 @@ function platformsSnapshot() {
     name: platformName(p),
     avatar: platformAvatar(p),
     total: sources[p].total,
-    contribution: contribution(sources[p], synced),
+    // Excluded platforms (YouTube in follower mode) contribute nothing and are
+    // flagged so the main screen can drop their Live Total icon.
+    contribution: inScope(p) ? contribution(sources[p], synced) : 0,
+    inScope: inScope(p),
     live: sources[p].live,
   }))
+}
+
+// The text written to OBS / the output file: the count/goal, optionally prefixed
+// with the user's label (e.g. "DAILY SUB GOAL 0/5"). Empty label -> just "0/5".
+function formatOutput(c, g) {
+  const label = (cfg.goalLabel || '').trim()
+  return label ? `${label} ${c}/${g}` : `${c}/${g}`
 }
 
 // ---- output: file + obs ----
@@ -353,7 +393,7 @@ async function pushOutput() {
     manualGoal = false
     goal = computeGoal(count, goalBase, sessIncrement)
   }
-  const text = `${count}/${goal}`
+  const text = formatOutput(count, goal)
   send('count-changed', { count, goal, synced, session: sessionCount(), platforms: platformsSnapshot() })
   updateTray({ tracking, count, goal })
 
@@ -383,7 +423,11 @@ function startTracking() {
   // transient auth error can leave sources[p].connected=false while the login is
   // actually still valid, which would otherwise make Start silently do nothing.
   for (const p of PLATFORMS) sources[p].connected = isConnected(p)
-  const active = PLATFORMS.filter((p) => participates(sources[p]))
+  // In follower mode YouTube is excluded and Twitch has no live push (the sub
+  // EventSub only counts subs), so `liveDriven` gates the EventSub path.
+  const fm = followerMode()
+  const active = PLATFORMS.filter((p) => participates(sources[p]) && inScope(p))
+  const liveDriven = (p) => sources[p].live && !fm
   // No connected channel is fine — start a manual session (count driven by
   // +/- and click-to-edit). The header pill still shows the "No Channels" warning.
   tracking = true
@@ -394,13 +438,14 @@ function startTracking() {
   manualOffset = 0
 
   for (const p of active) {
-    if (sources[p].live) {
-      // Twitch: session mode counts new subs from 0; synced mode fetches the
-      // real total below and lets live subs add on top.
+    if (liveDriven(p)) {
+      // Twitch (subs): session mode counts new subs from 0; synced mode fetches
+      // the real total below and lets live subs add on top.
       sources[p].total = 0
       sources[p].sessionBase = 0
     } else {
-      // Polled: the poller's first tick establishes the session baseline.
+      // Polled (all follower-mode sources, plus YouTube/Kick subs): the poller's
+      // first tick establishes the session baseline.
       sources[p].sessionBase = null
     }
   }
@@ -408,12 +453,13 @@ function startTracking() {
   recomputeCount()
   pushOutput()
 
-  if (participates(sources.twitch)) {
-    startTwitchTracker()
-    if (synced) fetchTwitchTotal()
-  }
-  for (const p of ['youtube', 'kick']) {
-    if (participates(sources[p])) startPoller(p)
+  for (const p of active) {
+    if (liveDriven(p)) {
+      startTwitchTracker()
+      if (synced) fetchTwitchTotal()
+    } else {
+      startPoller(p)
+    }
   }
 
   updateTray({ tracking, count, goal })
@@ -452,7 +498,7 @@ async function fetchTwitchTotal() {
 
 function startPoller(p) {
   const poller = new Poller({
-    fetchTotal: () => providers[p].getTotal(),
+    fetchTotal: () => fetchMetric(p),
     intervalMs: (Number(cfg.pollIntervalSec) || 60) * 1000,
   })
   poller.on('total', (t) => {
@@ -574,8 +620,23 @@ ipcMain.handle('get-state', () => ({
 }))
 
 ipcMain.handle('save-settings', (_e, patch) => {
+  const prevMode = cfg.trackingMode
   Object.assign(cfg, patch)
   config.save(cfg)
+  const modeChanged = 'trackingMode' in patch && patch.trackingMode !== prevMode
+  if (modeChanged && tracking) {
+    // Switching subs <-> followers changes what's counted, so rebuild the
+    // drivers (and re-baseline the session) for the new metric.
+    stopTracking()
+    startTracking()
+  } else {
+    // Label change, or a mode change while idle: recompute + repush so the OBS
+    // text (label prefix) and the counter reflect the new settings right away.
+    if (modeChanged) recomputeCount()
+    pushOutput()
+  }
+  // The Live Total card is metric-specific, so refetch it after a mode change.
+  if (modeChanged) refreshTotals()
   return cfg
 })
 
@@ -615,8 +676,10 @@ ipcMain.handle('set-platform-enabled', (_e, { platform, on } = {}) => {
   cfg[`${platform}Enabled`] = !!on
   config.save(cfg)
   if (tracking) {
-    if (on && participates(sources[platform])) {
-      if (platform === 'twitch') {
+    if (on && participates(sources[platform]) && inScope(platform)) {
+      // Twitch runs live via EventSub only for subs; in follower mode it polls
+      // like the others.
+      if (sources[platform].live && !followerMode()) {
         if (!twitchTracker) startTwitchTracker()
       } else if (!pollers[platform]) {
         sources[platform].sessionBase = null
@@ -778,7 +841,7 @@ ipcMain.handle('obs-select-source', (_e, name) => {
 
 ipcMain.handle('obs-test-source', async (_e, name) => {
   try {
-    await obs.setText(name || cfg.obsSource, `${count}/${goal}`)
+    await obs.setText(name || cfg.obsSource, formatOutput(count, goal))
     return { ok: true }
   } catch (e) {
     return { ok: false, error: e.message }
@@ -829,7 +892,7 @@ ipcMain.handle('sync-sub-count', async (_e, on) => {
     pushOutput()
     return { ok: true, synced: false, count, goal }
   }
-  const active = PLATFORMS.filter((p) => participates(sources[p]))
+  const active = PLATFORMS.filter((p) => participates(sources[p]) && inScope(p))
   if (!active.length) return { ok: false, error: 'Connect a platform first.' }
   // Fetch each platform independently: one platform failing (e.g. a YouTube
   // channel with memberships unavailable) must not abort the whole sync. A
@@ -838,7 +901,7 @@ ipcMain.handle('sync-sub-count', async (_e, on) => {
   manualOffset = 0
   for (const p of active) {
     try {
-      const total = await providers[p].getTotal()
+      const total = await fetchMetric(p)
       sources[p].total = Math.max(0, Number(total) || 0)
       clearPlatformWarning(p)
     } catch (e) {

@@ -27,6 +27,12 @@ const DEFAULTS = {
   pollIntervalSec: 60,
   startGoal: 5,
   increment: 5,
+  // Optional label prefixed to the OBS/text output, e.g. "DAILY SUB GOAL" ->
+  // "DAILY SUB GOAL 0/5". Empty by default (output is just "0/5").
+  goalLabel: '',
+  // What the counter tracks: 'subs' (Twitch/Kick subs + YouTube members) or
+  // 'followers' (Twitch/Kick followers; YouTube is excluded in this mode).
+  trackingMode: 'subs',
   writeToFile: false,
   outputFile: '',
   useObsWebsocket: true,

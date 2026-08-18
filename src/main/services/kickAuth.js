@@ -148,6 +148,27 @@ async function getSubscriberCount(accessToken) {
   return Number(rows[0] && rows[0].active_subscribers_count) || 0
 }
 
+// Current follower total. Kick's public /channels payload is the only endpoint
+// that exposes channel counters, but the follower field isn't documented as
+// stably as active_subscribers_count, so we read whichever known key is present.
+// If none is (the API doesn't surface followers for this channel), we raise a
+// non-fatal warning rather than silently reporting 0. Isolated here so only this
+// file changes if Kick pins the field down.
+async function getFollowerCount(accessToken) {
+  const res = await fetch(`${API_BASE}/channels`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  })
+  if (res.status === 401) throw new AuthExpired('Your Kick login expired. Please log in again.')
+  if (!res.ok) throw new AuthError('Couldn’t read your Kick followers right now. Please try again.')
+  const row = ((await res.json()).data || [])[0] || {}
+  for (const key of ['followers_count', 'follower_count', 'followersCount', 'followers']) {
+    if (row[key] != null) return Number(row[key]) || 0
+  }
+  const e = new AuthError('Kick doesn’t expose a follower count through its API yet.')
+  e.fatal = true
+  throw e
+}
+
 module.exports = {
   CLIENT_ID,
   SCOPES,
@@ -157,4 +178,5 @@ module.exports = {
   refreshAccessToken,
   getCurrentChannel,
   getSubscriberCount,
+  getFollowerCount,
 }

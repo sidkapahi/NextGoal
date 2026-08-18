@@ -43,9 +43,11 @@ function participates(src) {
 //   synced = false -> sum of subs gained since each source's session baseline
 // `manualOffset` folds in the user's +/- nudges and test subs. The result is
 // never negative. A session source whose baseline is still null contributes 0.
-function combinedCount(sources, synced, manualOffset = 0) {
+// `excluded` names platforms to skip entirely (e.g. YouTube in follower mode).
+function combinedCount(sources, synced, manualOffset = 0, excluded = []) {
   let n = Number(manualOffset) || 0
   for (const p of PLATFORMS) {
+    if (excluded.includes(p)) continue
     const s = sources[p]
     if (!participates(s)) continue
     const total = Number(s.total) || 0
